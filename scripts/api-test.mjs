@@ -98,6 +98,9 @@ await test('prices and settings: admin only', async () => {
   const all = (await A('GET', '/api/all', { cookie: staff })).data;
   assert.equal(all.prices.p1.rate, 240);
   assert.equal(all.settings.invoice.trn, '100000000000003');
+  assert.equal(all.settings.invoice.vat, true);
+  assert.equal((await A('PUT', '/api/settings/invoice', { cookie: admin, body: { trn: '', vat: false } })).status, 200);
+  assert.equal((await A('GET', '/api/all', { cookie: admin })).data.settings.invoice.vat, false);
 });
 
 await test('validation: bad stage, bad price, bad ids, oversize, unknown settings doc', async () => {

@@ -65,7 +65,7 @@ In Netlify open **Site configuration, Environment variables** and add `STAFF_PAS
 - **Customers:** link to `/` from the website's "Get a free quote" button, WhatsApp and Instagram. The form's main button sends the request to the desk. WhatsApp and Copy message remain as alternatives.
 - **New requests** show at the top of the Jobs list. "Create job" turns one into an enquiry with the details filled in.
 - **Messages from WhatsApp or email:** "Paste a customer request" still works for any message that has `Name:` and `Phone:` lines.
-- **Invoices:** when a job reaches "Fabric confirmed", an Invoice section appears. "Download invoice" saves a file. Open it and press Print, or choose Save as PDF in the print window. With a TRN set the document is titled "Tax invoice". Invoice numbers are suggested (date plus a job code) and can be edited. They are not strictly sequential.
+- **Invoices:** when a job reaches "Fabric confirmed", an Invoice section appears. "Download invoice" saves a file. Open it and press Print, or choose Save as PDF in the print window. The admin can untick **Charge 5% VAT** (Prices tab, Invoice details) if the business is not VAT-registered; quotes and invoices then show no VAT line. With VAT on and a TRN set the document is titled "Tax invoice". Invoice numbers are suggested (date plus a job code) and can be edited. They are not strictly sequential.
 - **Backups:** the admin sees "Download backup" in the header. It saves everything as one file. Do this weekly.
 
 ## Good to know
@@ -93,6 +93,7 @@ Open http://localhost:8888 (customer page) and http://localhost:8888/desk/ (staf
 ```
 netlify.toml                  Netlify settings and security headers
 package.json                  one dependency: @netlify/blobs
+public/logo.png, logo-mark.png  logo files (replace them to change the logo)
 public/index.html             customer page
 public/desk/index.html        staff desk
 netlify/functions/api.mjs     staff API (login, jobs, prices, settings, backup, health)
