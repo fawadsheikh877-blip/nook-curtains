@@ -99,6 +99,9 @@ await test('prices and settings: admin only', async () => {
   assert.equal(all.prices.p1.rate, 240);
   assert.equal(all.settings.invoice.trn, '100000000000003');
   assert.equal(all.settings.invoice.vat, true);
+  assert.equal((await A('PUT', '/api/settings/invoice', { cookie: admin, body: { trn: '', vat: false, conditions: 'One\nTwo' } })).status, 200);
+  assert.equal((await A('GET', '/api/all', { cookie: admin })).data.settings.invoice.conditions, 'One\nTwo');
+  assert.equal((await A('PUT', '/api/settings/invoice', { cookie: admin, body: { conditions: 'x'.repeat(4001) } })).status, 400);
   assert.equal((await A('PUT', '/api/settings/invoice', { cookie: admin, body: { trn: '', vat: false } })).status, 200);
   assert.equal((await A('GET', '/api/all', { cookie: admin })).data.settings.invoice.vat, false);
 });

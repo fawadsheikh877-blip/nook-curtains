@@ -66,7 +66,7 @@ export function checkDoc(col, id, body) {
   }
   if (col === 'settings') {
     if (id !== 'invoice') throw new HttpError(400, 'Unknown settings document');
-    return { trn: clean(str(doc.trn, 40, 'TRN')), terms: clean(str(doc.terms, 200, 'Terms')), vat: doc.vat !== false };
+    return { trn: clean(str(doc.trn, 40, 'TRN')), terms: clean(str(doc.terms, 200, 'Terms')), vat: doc.vat !== false, conditions: clean(str(doc.conditions, 4000, 'Terms and conditions')) };
   }
   throw new HttpError(405, 'This collection cannot be written here');
 }
