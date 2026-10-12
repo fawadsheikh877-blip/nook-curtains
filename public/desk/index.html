@@ -46,8 +46,8 @@ button{cursor:pointer}
 .brand{display:flex;flex-direction:column;line-height:1.1}
 .brand b{font-family:var(--f-display);font-size:20px;font-weight:700;letter-spacing:.01em}
 .brand small{font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.85}
-.tabs{display:flex;gap:4px;flex:1;min-width:0}
-.tabs button{background:transparent;border:0;border-radius:6px;padding:8px 12px;font-weight:600;color:inherit;opacity:.8}
+.tabs{display:flex;gap:4px;flex:1;min-width:0;overflow-x:auto}
+.tabs button{background:transparent;border:0;border-radius:6px;padding:8px 12px;font-weight:600;color:inherit;opacity:.8;white-space:nowrap}
 .tabs button[aria-selected="true"]{background:var(--accent-ink);color:var(--accent);opacity:1}
 .savestate{font-size:12px;opacity:.9;font-family:var(--f-mono)}
 .signbar{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);padding:10px 12px;border-radius:6px;line-height:1.45}
@@ -59,7 +59,7 @@ button{cursor:pointer}
   .top .brand b{font-size:17px;white-space:nowrap}
   .top .nook-hb{order:2;flex:0 0 auto}
   .tabs{order:3;flex:1 0 100%;gap:6px}
-  .tabs button{flex:1 1 0;min-width:0;padding:9px 4px;font-size:14px;text-align:center;white-space:nowrap}
+  .tabs button{flex:0 0 auto;padding:9px 12px;font-size:14px;text-align:center;white-space:nowrap}
   .savestate{order:4;flex:1 0 100%;font-size:11px}
   .savestate:empty,.savestate[data-s="saving"],.savestate[data-s="saved"],.savestate[data-s="idle"]{display:none}
 }
@@ -153,6 +153,31 @@ td.num input{text-align:right;font-family:var(--f-mono)}
 #reqbox h3{margin:0}
 .req{display:grid;gap:8px;background:var(--raised);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-top:8px}
 .foot{color:var(--muted);font-size:12px;padding-block:16px;border-top:1px solid var(--line)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.tile .tl{font-size:12px;color:var(--muted);font-weight:600}
+.tile .tv{font-size:22px;font-weight:600;overflow-wrap:anywhere}
+.tile .ts{font-size:12px;color:var(--muted)}
+.panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:16px;align-items:start}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
+.panel h3{margin-bottom:10px}
+.bars{display:flex;flex-direction:column;gap:8px}
+.bar{display:grid;grid-template-columns:minmax(70px,140px) minmax(0,1fr) auto;gap:8px;align-items:center;font-size:13px}
+.bar .bk{display:block;background:var(--accent-soft);border-radius:4px;height:14px;overflow:hidden}
+.bar .bk i{display:block;height:100%;background:var(--accent);border-radius:4px}
+.meter{height:8px;background:var(--accent-soft);border-radius:4px;overflow:hidden;margin-top:8px}
+.meter i{display:block;height:100%;background:var(--ok)}
+.linkb{background:none;border:0;padding:0;font-weight:600;color:var(--accent);text-align:left;text-decoration:underline}
+.todo{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.todo:first-of-type{border-top:0}
+.paytab,.rtab{min-width:520px}
+.panels .rtab{min-width:0}
+.panels td,.panels th{padding-inline:4px}
+.paytab td.num,.rtab td.num,.rtab th.num,.paytab th.num{text-align:right}
+.rangebar{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
+.rangebar .f{width:150px}
+.pill{display:inline-block;font-size:11px;font-weight:600;border:1px solid var(--danger);color:var(--danger);border-radius:999px;padding:1px 8px}
+.note{color:var(--muted);font-size:12px;margin:8px 0 0}
 @media (prefers-reduced-motion:no-preference){.job,.chip,.btn{transition:border-color .15s,background .15s}}
 </style>
 </head><body>
@@ -161,15 +186,20 @@ td.num input{text-align:right;font-family:var(--f-mono)}
 <header class="top"><div class="wrap">
   <div class="brand"><img src="/logo-mark.png" alt=""><span class="bt"><b>Nook Curtains</b><small>Staff desk</small></span></div>
   <nav class="tabs" role="tablist" aria-label="Sections">
+    <button role="tab" data-act="tab" data-tab="dash" aria-selected="false">Dashboard</button>
     <button role="tab" data-act="tab" data-tab="jobs" aria-selected="true">Jobs</button>
     <button role="tab" data-act="tab" data-tab="appts" aria-selected="false">Appointments</button>
+    <button role="tab" data-act="tab" data-tab="payments" aria-selected="false" hidden>Payments</button>
     <button role="tab" data-act="tab" data-tab="prices" aria-selected="false">Prices</button>
+    <button role="tab" data-act="tab" data-tab="reports" aria-selected="false" hidden>Reports</button>
   </nav>
   <span class="savestate" id="savestate" role="status" aria-live="polite"></span>
 </div></header>
 
 <main class="wrap">
   <div id="banner"></div>
+
+  <section id="view-dash" hidden></section>
 
   <section id="view-jobs">
     <div class="split">
@@ -194,7 +224,9 @@ td.num input{text-align:right;font-family:var(--f-mono)}
   </section>
 
   <section id="view-appts" hidden></section>
+  <section id="view-payments" hidden></section>
   <section id="view-prices" hidden></section>
+  <section id="view-reports" hidden></section>
 </main>
 
 <footer class="wrap foot">
@@ -678,6 +710,7 @@ td.num input{text-align:right;font-family:var(--f-mono)}
     item('Export jobs (spreadsheet)', 'One row per customer job. Opens in Excel.', function () { exportCsv('jobs'); });
     item('Export windows and items', 'One row per window or item, with prices.', function () { exportCsv('items'); });
     if (role === 'admin') {
+      item('Export payments (spreadsheet)', 'Every payment received, one row each.', function () { exportCsv('payments'); });
       item('Download backup', 'Everything, to keep safe (.json file).', function () {
         downloadBackup().then(function () { note('Backup saved. Keep the file somewhere safe.'); }, function (e) { if (!(e && e.code === 'offline')) note('The backup could not be downloaded.', true); });
       });
@@ -797,7 +830,7 @@ var DEFAULT_TERMS=[
 ].join('\n');
 var BIZ={phone:'0509186005',email:'info@nookcurtains.com'};
 
-var db=null, dl=null, jobs=new Map(), prices=new Map(), requests=new Map(), settings={trn:'',terms:'',vat:true,conditions:''}, curLock=false;
+var db=null, dl=null, jobs=new Map(), prices=new Map(), requests=new Map(), settings={trn:'',terms:'',vat:true,conditions:'',depositPct:50}, curLock=false;
 var sel=null, tab='jobs', q='', filter='open';
 var RO=false, canPrice=true, localMode=false, loaded={jobs:false,prices:false}, dbError='';
 var saving=new Map(), renderedJson='';
@@ -1018,13 +1051,13 @@ function detailHTML(j){
         (settings.vat?'<span>VAT 5%</span><span class="mono" data-t="vat">'+esc(aed(t.vat))+'</span>':'')+
         '<span class="grand">Total</span><span class="mono grand" data-t="total">'+esc(aed(t.total))+'</span>'+
       '</div></div>'+
-    '</div>'+approvalHTML(j)+invoiceHTML(j);
+    '</div>'+approvalHTML(j)+paymentsHTML(j)+invoiceHTML(j);
 }
 
 /* ---------- invoice ---------- */
 function invoiceReady(j){return j.stage==='confirmed'||j.stage==='install'||j.stage==='done'}
 function suggestInvNo(j){var d=new Date();return 'NC-'+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'-'+String(j.id).replace(/[^a-z0-9]/gi,'').slice(-4).toUpperCase()}
-function dueOf(j){return Math.max(0,r2(totals(j).total-num(j.deposit)))}
+function dueOf(j){return Math.max(0,r2(totals(j).total-paidOf(j)))}
 function invoiceName(j){return 'Invoice-'+String(j.invoiceNo||'draft').replace(/[^A-Za-z0-9_-]/g,'')+'.html'}
 function longDate(s){var d=new Date((s||ymd(new Date()))+'T12:00');return isNaN(d.getTime())?String(s||''):d.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}
 function invoiceHTML(j){
@@ -1033,7 +1066,7 @@ function invoiceHTML(j){
   return '<div class="sec"><h3>Invoice</h3><div class="grid">'+
     '<label class="f">Invoice number<input data-f="invoiceNo" value="'+esc(j.invoiceNo||suggestInvNo(j))+'"'+dis()+'></label>'+
     '<label class="f">Invoice date<input type="date" data-f="invoiceDate" value="'+esc(j.invoiceDate||ymd(new Date()))+'"'+dis()+'></label>'+
-    '<label class="f">Deposit received (AED)<input data-f="deposit" inputmode="decimal" value="'+esc(j.deposit||'')+'" placeholder="0"'+dis()+'></label>'+
+    '<div class="f">Paid so far (from Payments and deposits)<b class="mono" data-t="paid" style="color:var(--ink);font-size:16px">'+esc(aed(paidOf(j)))+'</b></div>'+
     '<div class="f">Balance due<b class="mono" data-t="due" style="color:var(--ink);font-size:16px">'+esc(aed(dueOf(j)))+'</b></div>'+
     '</div><div class="row" style="margin-top:10px"><button class="btn primary" data-act="invoice"'+(has?'':' disabled')+'>Download invoice</button>'+
     '<span class="f" id="invmsg" role="status">'+(has?'Saves a file. Open it, then press Print or choose Save as PDF.':'Add at least one priced window or item first.')+'</span></div></div>';
@@ -1069,7 +1102,7 @@ function approvalHTML(j){
   return h+'</div>';
 }
 function docFile(j,kind){
-  var q=kind==='quote',t=totals(j),dep=num(j.deposit),due=dueOf(j),n=0,tax=!q&&!!(settings.vat&&settings.trn);
+  var q=kind==='quote',t=totals(j),dep=paidOf(j),due=dueOf(j),n=0,tax=!q&&!!(settings.vat&&settings.trn);
   var rows=(j.lines||[]).map(function(l){
     var p=prices.get(l.priceId);if(!p)return '';
     n++;
@@ -1100,7 +1133,7 @@ function docFile(j,kind){
     '<div style="text-align:right"><h2>'+title+'</h2><div class="m">No. '+esc(no)+'<br>'+esc(date)+'</div></div></header>'+
     '<div class="two"><div class="s">'+(q?'PREPARED FOR':'BILL TO')+'</div><b>'+esc(j.name||'Customer')+'</b><div class="m">'+contact+'</div></div>'+
     '<table><thead><tr><th>#</th><th>Room</th><th>Item</th><th class="r">Qty</th><th class="r">Amount</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-    '<table class="tot"><tbody>'+tr('Subtotal',esc(aed(t.sub)))+(t.disc?tr('Discount','-'+esc(aed(t.disc))):'')+(t.fee?tr('Change fee (after signing)',esc(aed(t.fee))):'')+(settings.vat?tr('VAT 5%',esc(aed(t.vat))):'')+tr('Total',esc(aed(t.total)),'b')+(!q&&dep?tr('Deposit received','-'+esc(aed(dep)))+tr('Balance due',esc(aed(due)),'b'):'')+'</tbody></table>'+
+    '<table class="tot"><tbody>'+tr('Subtotal',esc(aed(t.sub)))+(t.disc?tr('Discount','-'+esc(aed(t.disc))):'')+(t.fee?tr('Change fee (after signing)',esc(aed(t.fee))):'')+(settings.vat?tr('VAT 5%',esc(aed(t.vat))):'')+tr('Total',esc(aed(t.total)),'b')+(!q&&dep?tr('Payments received','-'+esc(aed(dep)))+tr('Balance due',esc(aed(due)),'b'):'')+'</tbody></table>'+
     terms+sign+
     '<div class="foot">'+(q?'':(settings.terms?esc(settings.terms)+'<br>':'')+(j.signedAt?'Order approved by '+esc(j.signedBy||'the customer')+' on '+esc(longDate(j.signedAt))+'.<br>':''))+(q?'Thank you for considering Nook Curtains.':'Thank you for choosing Nook Curtains.')+'</div></main></body></html>';
 }
@@ -1111,18 +1144,20 @@ function settingsHTML(){
   return '<div class="sec" style="margin-top:20px;max-width:760px"><h3>Invoice details</h3><div class="grid">'+
     '<label class="f">Tax registration number (TRN)<input data-sf="trn" value="'+esc(settings.trn)+'" placeholder="Shown on invoices when filled in"'+ro+'></label>'+
     '<label class="f" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" data-sf="vat"'+(settings.vat?' checked':'')+ro+'> Charge 5% VAT on quotes and invoices</label>'+
+    '<label class="f">Standard deposit (% of the order total)<input data-sf="depositPct" inputmode="numeric" value="'+esc(settings.depositPct)+'"'+ro+'></label>'+
     '<label class="f">Payment terms line<input data-sf="terms" value="'+esc(settings.terms)+'" placeholder="Balance due on installation"'+ro+'></label>'+
     '</div><label class="f" style="margin-top:10px">Terms and conditions shown on quotations and invoices (one point per line)<textarea data-sf="conditions" rows="9"'+ro+'>'+esc(termsText())+'</textarea></label>'+
     '<p class="f" style="margin:6px 0 0">Clear the box to go back to the standard wording. Have the wording checked to suit your business.</p>'+
     '<p class="f" style="margin:6px 0 0">With VAT on and a TRN filled in, the document is titled Tax invoice. Otherwise it is titled Invoice. Turn VAT off if the business is not VAT-registered.</p></div>';
 }
 function saveSetting(k,v){
-  settings[k]=(k==='vat')?!!v:String(v).replace(/\r/g,'').trim();
+  if(k==='depositPct'){settings.depositPct=Math.min(100,Math.max(0,Math.round(num(v))))}
+  else settings[k]=(k==='vat')?!!v:String(v).replace(/\r/g,'').trim();
   if(k==='conditions'&&settings.conditions===DEFAULT_TERMS)settings.conditions='';
   if(k==='vat'){renderDetail();renderList();renderPrices()}
   if(!db)return;
   setSave('saving');
-  db.doc('settings/invoice').set({trn:settings.trn||'',terms:settings.terms||'',vat:settings.vat,conditions:settings.conditions||''}).then(function(){setSave(saving.size?'saving':'saved')},function(){setSave('error')});
+  db.doc('settings/invoice').set({trn:settings.trn||'',terms:settings.terms||'',vat:settings.vat,conditions:settings.conditions||'',depositPct:settings.depositPct}).then(function(){setSave(saving.size?'saving':'saved')},function(){setSave('error')});
 }
 
 function renderDetail(){
@@ -1141,7 +1176,8 @@ function renderDetail(){
 function refreshCalc(j){
   var t=totals(j);
   var set=function(k,v){var e=$('[data-t="'+k+'"]');if(e)e.textContent=aed(v)};
-  set('sub',t.sub);set('fee',t.fee);set('vat',t.vat);set('total',t.total);set('due',dueOf(j));
+  set('sub',t.sub);set('fee',t.fee);set('vat',t.vat);set('total',t.total);set('due',dueOf(j));set('paid',paidOf(j));
+  var ps=$('#paysum');if(ps)ps.innerHTML=paySummaryHTML(j);
   var has=t.sub>0;
   ['quote','sign','invoice'].forEach(function(k){var e=$('[data-act="'+k+'"]');if(e)e.disabled=!has||(k==='sign'&&RO)});
   var qm=$('#quotemsg');if(qm&&has&&/^Add at least/.test(qm.textContent))qm.textContent='';
@@ -1208,7 +1244,12 @@ function renderReqs(){
       '<div class="row"><button class="btn primary sm" data-act="req-create" data-id="'+esc(r.id)+'"'+dis()+'>Create job</button><button class="btn sm" data-act="req-dismiss" data-id="'+esc(r.id)+'"'+dis()+'>Dismiss</button></div></div>';
   }).join('');
 }
+function applyRole(){
+  $$('.tabs button').forEach(function(b){if(b.dataset.tab==='payments'||b.dataset.tab==='reports')b.hidden=!canPrice});
+  if(!canPrice&&(tab==='payments'||tab==='reports'))setTab('jobs');
+}
 function renderAll(fromSnap){
+  applyRole();
   renderBanner();
   renderList();
   renderReqs();
@@ -1221,6 +1262,9 @@ function renderAll(fromSnap){
   else if(j&&inDetail){refreshCalc(j)}
   if(!j&&!sel&&!renderedJson&&$('#detail').children.length===0)renderDetail();
   if(tab==='appts')renderAppts();
+  if(tab==='dash')renderDash();
+  if(tab==='payments')renderPay();
+  if(tab==='reports'&&!$('#view-reports').contains(document.activeElement))renderRep();
   if(tab==='prices'){var pa=document.activeElement;if(!(pa&&$('#view-prices').contains(pa)&&/INPUT|SELECT/.test(pa.tagName)))renderPrices()}
 }
 
@@ -1254,9 +1298,12 @@ function importJob(text){var r=parseRequest(text);if(!r.name&&!r.phone)return fa
 function setTab(t){
   tab=t;
   $$('.tabs button').forEach(function(b){b.setAttribute('aria-selected',String(b.dataset.tab===t))});
-  $('#view-jobs').hidden=t!=='jobs';$('#view-appts').hidden=t!=='appts';$('#view-prices').hidden=t!=='prices';
+  ['dash','jobs','appts','payments','prices','reports'].forEach(function(v){$('#view-'+v).hidden=v!==t});
+  if(t==='dash')renderDash();
   if(t==='appts')renderAppts();
+  if(t==='payments')renderPay();
   if(t==='prices')renderPrices();
+  if(t==='reports')renderRep();
 }
 function addPrice(){
   var id=db?db.collection('prices').doc().id:uid();
@@ -1270,6 +1317,27 @@ document.addEventListener('click',function(e){
   switch(act){
     case 'tab':setTab(b.dataset.tab);break;
     case 'new-job':newJob();break;
+    case 'goto':setTab(b.dataset.tab);if(b.dataset.filter){filter=b.dataset.filter;q='';$('#search').value='';renderList()}window.scrollTo(0,0);break;
+    case 'pay-csv':if(window.NookExport){var pcm=$('#paycsvmsg');window.NookExport.payments().then(function(){if(pcm)pcm.textContent='Saved. Open it with Excel or Google Sheets.'},function(){if(pcm)pcm.textContent='Could not save the file.'})}break;
+    case 'rep-preset':rep.preset=b.dataset.v;renderRep();break;
+    case 'rep-export':if(window.NookExport){var rm=$('#repmsg');window.NookExport.report().then(function(){if(rm)rm.textContent='Saved. Open it with Excel or Google Sheets.'},function(){if(rm)rm.textContent='Could not save the file.'})}break;
+    case 'pay-fill-dep':if(j){var da=Math.max(0,r2(totals(j).total*settings.depositPct/100-paidOf(j)));$('[data-pay="amount"]').value=da||'';$('[data-pay="kind"]').value='Deposit'}break;
+    case 'pay-fill-bal':if(j){var ba=Math.max(0,r2(totals(j).total-paidOf(j)));$('[data-pay="amount"]').value=ba||'';$('[data-pay="kind"]').value='Final payment'}break;
+    case 'pay-add':if(j){
+      var pm=$('#paymsg'),amt=r2(num($('[data-pay="amount"]').value));
+      if(!(amt>0)){pm.textContent='Enter the amount received.';break}
+      if(amt>1e8){pm.textContent='That amount is too large.';break}
+      var over=amt>r2(totals(j).total-paidOf(j))+0.005;
+      var pl=ensurePayments(j);
+      if(pl.length>=100){pm.textContent='This job has too many payments recorded.';break}
+      pl.push({id:uid(),date:$('[data-pay="date"]').value||ymd(new Date()),amount:amt,kind:$('[data-pay="kind"]').value,method:$('[data-pay="method"]').value,note:$('[data-pay="note"]').value.trim().slice(0,120)});
+      touch(j);renderList();renderDetail();
+      var pm2=$('#paymsg');if(pm2)pm2.textContent='Recorded '+aed(amt)+'.'+(over?' This is more than the balance that was due.':'');
+    }break;
+    case 'pay-rm':
+      if(!b.dataset.armed){b.dataset.armed='1';b.textContent='Click again';setTimeout(function(){b.dataset.armed='';b.textContent='Remove'},4000)}
+      else if(j){var pid=b.closest('tr').dataset.pid;var pl2=ensurePayments(j);j.payments=pl2.filter(function(x){return x.id!==pid});touch(j);renderList();renderDetail()}
+      break;
     case 'chip':filter=b.dataset.v;q='';$('#search').value='';renderList();break;
     case 'open':sel=b.dataset.id;setTab('jobs');renderList();renderDetail();window.scrollTo(0,0);break;
     case 'back':sel=null;document.body.classList.remove('open-detail');renderList();break;
@@ -1333,6 +1401,10 @@ document.addEventListener('click',function(e){
   }
 });
 
+document.addEventListener('change',function(e){
+  var t=e.target;
+  if(t.dataset&&t.dataset.rf){rep[t.dataset.rf]=t.value;rep.preset='custom';renderRep()}
+});
 document.addEventListener('input',function(e){
   var t=e.target;
   if(t.id==='search'){q=t.value.trim();renderList();return}
@@ -1381,10 +1453,10 @@ function csvText(head,rows){
 function sortedJobs(){return Array.from(jobs.values()).sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0)})}
 function dateText(ms){return ms?ymd(new Date(ms)):''}
 function jobsCsv(){
-  var head=['Created','Customer','Phone','Email','Area','How they reached us','Stage','Interested in','Visit type','Visit date and time','Notes','Windows and items','Subtotal (AED)','Discount (AED)','VAT (AED)','Total (AED)','Deposit (AED)','Balance due (AED)','Invoice no.','Invoice date','Signed by','Signed on','Change fee (AED)','What was changed after signing'];
+  var head=['Created','Customer','Phone','Email','Area','How they reached us','Stage','Interested in','Visit type','Visit date and time','Notes','Windows and items','Subtotal (AED)','Discount (AED)','VAT (AED)','Total (AED)','Paid to date (AED)','Balance due (AED)','Invoice no.','Invoice date','Signed by','Signed on','Change fee (AED)','What was changed after signing'];
   var rows=sortedJobs().map(function(j){
     var t=totals(j),has=invoiceReady(j);
-    return [dateText(j.createdAt),j.name||'',j.phone||'',j.email||'',j.area||'',j.source||'',(STAGE[j.stage]||STAGE.enquiry).label,(j.interest||[]).join(', '),j.visit||'',j.apptAt||'',j.notes||'',(j.lines||[]).length,t.sub,t.disc,t.vat,t.total,num(j.deposit),has?dueOf(j):'',has?(j.invoiceNo||''):'',has?(j.invoiceDate||''):'',j.signedAt?(j.signedBy||''):'',j.signedAt||'',t.fee,j.changeNote||''];
+    return [dateText(j.createdAt),j.name||'',j.phone||'',j.email||'',j.area||'',j.source||'',(STAGE[j.stage]||STAGE.enquiry).label,(j.interest||[]).join(', '),j.visit||'',j.apptAt||'',j.notes||'',(j.lines||[]).length,t.sub,t.disc,t.vat,t.total,paidOf(j),has?dueOf(j):'',has?(j.invoiceNo||''):'',has?(j.invoiceDate||''):'',j.signedAt?(j.signedBy||''):'',j.signedAt||'',t.fee,j.changeNote||''];
   });
   return csvText(head,rows);
 }
@@ -1405,8 +1477,256 @@ function saveCsv(name,text){
 }
 window.NookExport={
   jobs:function(){return saveCsv('nook-jobs',jobsCsv())},
-  items:function(){return saveCsv('nook-items',itemsCsv())}
+  items:function(){return saveCsv('nook-items',itemsCsv())},
+  payments:function(){return saveCsv('nook-payments',paymentsCsv())},
+  report:function(){return saveCsv('nook-report',reportCsv())}
 };
+
+/* ---------- payments ---------- */
+var PAY_KINDS=['Deposit','Instalment','Final payment'];
+var PAY_METHODS=['Cash','Card','Bank transfer','Cheque'];
+function paymentsOf(j){
+  if(Array.isArray(j.payments))return j.payments;
+  return num(j.deposit)>0?[{id:'legacy',date:'',amount:num(j.deposit),kind:'Deposit',method:'',note:'Recorded before the payments section'}]:[];
+}
+function paidOf(j){return r2(paymentsOf(j).reduce(function(s,p){return s+num(p.amount)},0))}
+function ensurePayments(j){
+  if(!Array.isArray(j.payments)){j.payments=paymentsOf(j).map(function(p){return Object.assign({},p)});j.deposit=0}
+  return j.payments;
+}
+function paySummaryHTML(j){
+  var t=totals(j),paid=paidOf(j),bal=r2(t.total-paid);
+  var pct=t.total>0?Math.max(0,Math.min(100,Math.round(paid/t.total*100))):0;
+  return '<div class="sum"><span>Order total</span><span class="mono">'+esc(aed(t.total))+'</span><span>Paid so far</span><span class="mono">'+esc(aed(paid))+'</span>'+
+    '<span class="grand">'+(bal<0?'Overpaid by':'Balance due')+'</span><span class="mono grand">'+esc(aed(Math.abs(bal)))+'</span></div>'+
+    '<div class="meter" role="img" aria-label="'+pct+' percent paid"><i style="width:'+pct+'%"></i></div>';
+}
+function paymentsHTML(j){
+  if(j.stage==='lost'||!(j.lines||[]).length)return '';
+  var list=paymentsOf(j),ro=RO?' disabled':'';
+  var rows=list.map(function(p){
+    return '<tr data-pid="'+esc(p.id)+'"><td>'+esc(p.date?longDate(p.date):'Earlier')+'</td><td>'+esc(p.kind||'')+'</td><td>'+esc(p.method||'')+'</td><td class="num mono">'+esc(aed(num(p.amount)))+'</td><td>'+esc(p.note||'')+'</td><td>'+(RO?'':'<button class="btn sm danger" data-act="pay-rm">Remove</button>')+'</td></tr>';
+  }).join('');
+  var opt=function(a,sel){return a.map(function(x){return '<option'+(x===sel?' selected':'')+'>'+esc(x)+'</option>'}).join('')};
+  var firstKind=list.length?'Instalment':'Deposit';
+  return '<div class="sec" id="payments"><h3>Payments and deposits</h3><div id="paysum">'+paySummaryHTML(j)+'</div>'+
+    (rows?'<div class="scroll" style="margin-top:10px"><table class="paytab"><thead><tr><th>Date</th><th>Type</th><th>Method</th><th class="num">Amount</th><th>Note</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<p class="f" style="margin:10px 0 0">No payment recorded yet.</p>')+
+    '<div class="grid" style="margin-top:10px">'+
+      '<label class="f">Type<select data-pay="kind"'+ro+'>'+opt(PAY_KINDS,firstKind)+'</select></label>'+
+      '<label class="f">Amount received (AED)<input data-pay="amount" class="mono" inputmode="decimal" placeholder="0"'+ro+'></label>'+
+      '<label class="f">Method<select data-pay="method"'+ro+'>'+opt(PAY_METHODS,'Cash')+'</select></label>'+
+      '<label class="f">Date<input type="date" data-pay="date" value="'+esc(ymd(new Date()))+'"'+ro+'></label>'+
+      '<label class="f">Note (optional)<input data-pay="note" maxlength="120" placeholder="e.g. Receipt no. 123"'+ro+'></label>'+
+    '</div><div class="row" style="margin-top:10px"><button class="btn primary" data-act="pay-add"'+ro+'>Record payment</button>'+
+      '<button class="btn" data-act="pay-fill-dep"'+ro+'>Fill standard deposit ('+esc(settings.depositPct)+'%)</button>'+
+      '<button class="btn" data-act="pay-fill-bal"'+ro+'>Fill balance</button><span class="f" id="paymsg" role="status"></span></div></div>';
+}
+
+/* ---------- shared figures for the dashboard, payments and reports ---------- */
+function isCommitted(j){return j.stage!=='lost'&&totals(j).sub>0&&(!!j.signedAt||j.stage==='confirmed'||j.stage==='install'||j.stage==='done')}
+function orderDate(j){return j.signedAt||ymd(new Date(j.updatedAt||j.createdAt||Date.now()))}
+function allPayments(){
+  var out=[];
+  jobs.forEach(function(j){paymentsOf(j).forEach(function(p){out.push({job:j,p:p,date:p.date||'',amount:num(p.amount)})})});
+  return out;
+}
+function sumBy(list,fn){return r2(list.reduce(function(s,x){return s+fn(x)},0))}
+function balanceNow(j){return Math.max(0,r2(totals(j).total-paidOf(j)))}
+function inRange(s,from,to){return !!s&&(!from||s>=from)&&(!to||s<=to)}
+function monthOf(s){return String(s||'').slice(0,7)}
+function monthLabel(k){var d=new Date(k+'-01T12:00');return isNaN(d.getTime())?k:d.toLocaleDateString('en-GB',{month:'short',year:'numeric'})}
+function tile(label,value,sub){return '<div class="tile"><span class="tl">'+esc(label)+'</span><span class="tv mono">'+esc(value)+'</span><span class="ts">'+esc(sub||'')+'</span></div>'}
+function bars(items,fmt){
+  if(!items.length)return '<div class="empty">Nothing to show yet.</div>';
+  var max=Math.max.apply(null,items.map(function(v){return v.value}).concat([1]));
+  return '<div class="bars">'+items.map(function(it){
+    return '<div class="bar"><span>'+esc(it.label)+'</span><span class="bk"><i style="width:'+Math.round(it.value/max*100)+'%"></i></span><span class="mono">'+esc(fmt?fmt(it.value):it.value)+'</span></div>';
+  }).join('')+'</div>';
+}
+function openJobBtn(j){return '<button class="linkb" data-act="open" data-id="'+esc(j.id)+'">'+esc(j.name||'Unnamed enquiry')+'</button>'}
+
+/* ---------- dashboard ---------- */
+function renderDash(){
+  var el=$('#view-dash');
+  if(!loaded.jobs&&!localMode){el.innerHTML='<div class="empty">Loading…</div>';return}
+  var today=ymd(new Date()),mk=today.slice(0,7),all=Array.from(jobs.values());
+  var openJobs=all.filter(function(j){return j.stage!=='done'&&j.stage!=='lost'});
+  var visitsToday=all.filter(function(j){return j.apptAt&&j.apptAt.slice(0,10)===today&&j.stage!=='lost'&&j.stage!=='done'});
+  var tiles='';
+  if(canPrice){
+    var com=all.filter(isCommitted);
+    var quoted=all.filter(function(j){return j.stage==='quoted'&&totals(j).sub>0});
+    var wonMonth=com.filter(function(j){return monthOf(orderDate(j))===mk});
+    tiles+=tile('Collected this month',aed(sumBy(allPayments().filter(function(x){return monthOf(x.date)===mk}),function(x){return x.amount})),'payments received');
+    tiles+=tile('Still to collect',aed(sumBy(com,balanceNow)),'balances on confirmed orders');
+    tiles+=tile('Orders won this month',String(wonMonth.length),aed(sumBy(wonMonth,function(j){return totals(j).net}))+(settings.vat?' before VAT':''));
+    tiles+=tile('Quotes waiting',String(quoted.length),aed(sumBy(quoted,function(j){return totals(j).total}))+' not yet confirmed');
+  }
+  tiles+=tile('Open jobs',String(openJobs.length),'not done or lost');
+  tiles+=tile('Visits today',String(visitsToday.length),visitsToday.length?'see Appointments':'none booked');
+  tiles+=tile('New requests',String(requests.size),'waiting in the inbox');
+
+  var todo='',ad=function(n,text,tabId,flt){if(n>0)todo+='<div class="todo"><span><b class="mono">'+n+'</b> '+esc(text)+'</span><button class="btn sm" data-act="goto" data-tab="'+tabId+'"'+(flt?' data-filter="'+flt+'"':'')+'>Open</button></div>'};
+  ad(requests.size,'new customer request'+(requests.size===1?'':'s')+' to answer','jobs');
+  var late=all.filter(function(j){return j.apptAt&&j.apptAt.slice(0,10)<today&&(j.stage==='measure'||j.stage==='install')}).length;
+  ad(late,'past visit'+(late===1?'':'s')+' still open','appts');
+  var stale=all.filter(function(j){return j.stage==='quoted'&&Date.now()-(j.updatedAt||0)>7*864e5}).length;
+  ad(stale,'quote'+(stale===1?'':'s')+' with no update for over 7 days','jobs','quoted');
+  if(canPrice){
+    var nodep=all.filter(function(j){return isCommitted(j)&&paidOf(j)<=0}).length;
+    ad(nodep,'confirmed order'+(nodep===1?'':'s')+' with no deposit yet','payments');
+  }
+  if(!todo)todo='<div class="empty">Nothing needs attention right now.</div>';
+
+  var stageCounts=STAGES.map(function(s){return {label:s.label,value:all.filter(function(j){return j.stage===s.id}).length}});
+  var soon=all.filter(function(j){return j.apptAt&&j.apptAt.slice(0,10)>=today&&j.stage!=='lost'&&j.stage!=='done'}).sort(function(a,b){return a.apptAt<b.apptAt?-1:1}).slice(0,6);
+  var visitsHTML=soon.length?soon.map(function(j){var a=parseAppt(j.apptAt);return '<div class="todo"><span>'+openJobBtn(j)+'<br><span class="f">'+esc([j.visit,j.area].filter(Boolean).join(' · '))+'</span></span><span class="mono f">'+esc(fmtDay(a)+' '+fmtTime(a))+'</span></div>'}).join(''):'<div class="empty">No visits booked.</div>';
+
+  var h='<div class="tiles">'+tiles+'</div><div class="panels">'+
+    '<div class="panel"><h3>Needs attention</h3>'+todo+'</div>'+
+    '<div class="panel"><h3>Coming visits</h3>'+visitsHTML+'</div>'+
+    '<div class="panel"><h3>Jobs by stage</h3>'+bars(stageCounts)+'</div>';
+  if(canPrice){
+    var months=[],d=new Date();d.setDate(1);
+    for(var i=5;i>=0;i--){var dd=new Date(d.getFullYear(),d.getMonth()-i,1);months.push(dd.getFullYear()+'-'+pad(dd.getMonth()+1))}
+    var com2=all.filter(isCommitted);
+    var data=months.map(function(m){return {label:monthLabel(m),value:sumBy(com2.filter(function(j){return monthOf(orderDate(j))===m}),function(j){return totals(j).net})}});
+    h+='<div class="panel"><h3>Orders won, last 6 months</h3>'+bars(data,aed)+'<p class="note">Order value'+(settings.vat?' before VAT':'')+', counted from the signing date.</p></div>';
+  }
+  el.innerHTML=h+'</div>';
+}
+
+/* ---------- payments overview (owner) ---------- */
+function renderPay(){
+  var el=$('#view-payments');
+  if(!canPrice){el.innerHTML='';return}
+  if(!loaded.jobs&&!localMode){el.innerHTML='<div class="empty">Loading…</div>';return}
+  var today=ymd(new Date()),mk=today.slice(0,7),all=Array.from(jobs.values());
+  var com=all.filter(isCommitted);
+  var owing=com.filter(function(j){return balanceNow(j)>0.004}).sort(function(a,b){
+    var za=paidOf(a)<=0?0:1,zb=paidOf(b)<=0?0:1;
+    return za-zb||(orderDate(a)<orderDate(b)?-1:1);
+  });
+  var pays=allPayments();
+  var rows=owing.map(function(j){
+    var paid=paidOf(j);
+    return '<tr><td>'+openJobBtn(j)+(paid<=0?' <span class="pill">No deposit</span>':'')+'</td><td>'+esc(longDate(orderDate(j)))+'</td><td>'+stageTag(j.stage)+'</td><td class="num mono">'+esc(aed(totals(j).total))+'</td><td class="num mono">'+esc(aed(paid))+'</td><td class="num mono"><b>'+esc(aed(balanceNow(j)))+'</b></td></tr>';
+  }).join('');
+  var recent=pays.filter(function(x){return x.date}).sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:0}).slice(0,25);
+  var rrows=recent.map(function(x){return '<tr><td>'+esc(longDate(x.date))+'</td><td>'+openJobBtn(x.job)+'</td><td>'+esc(x.p.kind||'')+'</td><td>'+esc(x.p.method||'')+'</td><td class="num mono">'+esc(aed(x.amount))+'</td></tr>'}).join('');
+  var legacy=pays.some(function(x){return !x.date});
+  el.innerHTML='<div class="tiles">'+
+      tile('Still to collect',aed(sumBy(com,balanceNow)),owing.length+' order'+(owing.length===1?'':'s')+' with a balance')+
+      tile('No deposit yet',String(com.filter(function(j){return paidOf(j)<=0}).length),'confirmed orders')+
+      tile('Collected this month',aed(sumBy(pays.filter(function(x){return monthOf(x.date)===mk}),function(x){return x.amount})),'')+
+      tile('Collected today',aed(sumBy(pays.filter(function(x){return x.date===today}),function(x){return x.amount})),'')+
+    '</div><div class="panel" style="margin-bottom:16px"><h3>Balances to collect</h3>'+
+    (rows?'<div class="scroll"><table class="rtab"><thead><tr><th>Customer</th><th>Order date</th><th>Stage</th><th class="num">Total</th><th class="num">Paid</th><th class="num">Balance</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<div class="empty">No balances waiting. Orders appear here once they are signed or at Fabric confirmed.</div>')+
+    '<p class="note">Orders with no deposit are listed first. Record payments inside each job, under Payments and deposits.</p></div>'+
+    '<div class="panel"><h3>Recent payments</h3>'+
+    (rrows?'<div class="scroll"><table class="rtab"><thead><tr><th>Date</th><th>Customer</th><th>Type</th><th>Method</th><th class="num">Amount</th></tr></thead><tbody>'+rrows+'</tbody></table></div>':'<div class="empty">No payments recorded yet.</div>')+
+    (legacy?'<p class="note">Deposits entered before this section existed have no date. They count towards balances but not towards period totals.</p>':'')+
+    '<div class="row" style="margin-top:10px"><button class="btn" id="paycsv" data-act="pay-csv">Download payments (spreadsheet)</button><span class="f" id="paycsvmsg" role="status"></span></div></div>';
+}
+
+/* ---------- reports (owner) ---------- */
+var rep={preset:'month',from:'',to:''};
+function repRange(){
+  var now=new Date(),y=now.getFullYear(),m=now.getMonth();
+  var f=function(d){return ymd(d)};
+  if(rep.preset==='month')return {from:f(new Date(y,m,1)),to:f(new Date(y,m+1,0))};
+  if(rep.preset==='last')return {from:f(new Date(y,m-1,1)),to:f(new Date(y,m,0))};
+  if(rep.preset==='q3')return {from:f(new Date(y,m-2,1)),to:f(new Date(y,m+1,0))};
+  if(rep.preset==='year')return {from:f(new Date(y,0,1)),to:f(new Date(y,11,31))};
+  if(rep.preset==='all')return {from:'',to:''};
+  return {from:rep.from||'',to:rep.to||''};
+}
+function reportData(){
+  var r=repRange(),from=r.from,to=r.to,all=Array.from(jobs.values());
+  var enq=all.filter(function(j){return inRange(dateText(j.createdAt),from,to)});
+  var won=all.filter(function(j){return isCommitted(j)&&inRange(orderDate(j),from,to)});
+  var lost=all.filter(function(j){return j.stage==='lost'&&inRange(dateText(j.updatedAt||j.createdAt),from,to)});
+  var pays=allPayments().filter(function(x){return inRange(x.date,from,to)});
+  var enqWon=enq.filter(isCommitted).length;
+  var cat={},item={},src={},meth={};
+  won.forEach(function(j){(j.lines||[]).forEach(function(l){
+    var p=prices.get(l.priceId),amt=lineAmount(l);if(!p||!amt)return;
+    var c=p.category||'Other';cat[c]=cat[c]||{n:0,v:0};cat[c].n+=num(l.qty)||1;cat[c].v=r2(cat[c].v+amt);
+    item[p.id]=item[p.id]||{name:p.name,cat:c,n:0,v:0};item[p.id].n+=num(l.qty)||1;item[p.id].v=r2(item[p.id].v+amt);
+  })});
+  enq.forEach(function(j){var k=j.source||'Not stated';src[k]=src[k]||{n:0,w:0};src[k].n++;if(isCommitted(j))src[k].w++});
+  pays.forEach(function(x){var k=x.p.method||'Not stated';meth[k]=r2((meth[k]||0)+x.amount)});
+  /* months shown: the range, but at most the last 12 */
+  var startKey=from?monthOf(from):(all.length?monthOf(dateText(Math.min.apply(null,all.map(function(j){return j.createdAt||Date.now()})))):monthOf(ymd(new Date())));
+  var endKey=to?monthOf(to):monthOf(ymd(new Date()));
+  var keys=[],a=new Date(startKey+'-01T12:00'),b=new Date(endKey+'-01T12:00');
+  if(!isNaN(a)&&!isNaN(b)){while(a<=b&&keys.length<120){keys.push(a.getFullYear()+'-'+pad(a.getMonth()+1));a=new Date(a.getFullYear(),a.getMonth()+1,1,12)}}
+  keys=keys.slice(-12);
+  var months=keys.map(function(k){return {k:k,
+    enq:all.filter(function(j){return monthOf(dateText(j.createdAt))===k}).length,
+    won:all.filter(function(j){return isCommitted(j)&&monthOf(orderDate(j))===k}).length,
+    sales:sumBy(all.filter(function(j){return isCommitted(j)&&monthOf(orderDate(j))===k}),function(j){return totals(j).net}),
+    coll:sumBy(allPayments().filter(function(x){return monthOf(x.date)===k}),function(x){return x.amount})}});
+  return {from:from,to:to,enq:enq.length,won:won.length,lost:lost.length,lostValue:sumBy(lost,function(j){return totals(j).net}),
+    sales:sumBy(won,function(j){return totals(j).net}),salesTotal:sumBy(won,function(j){return totals(j).total}),
+    conv:enq.length?enqWon/enq.length:0,collected:sumBy(pays,function(x){return x.amount}),
+    outstanding:sumBy(all.filter(isCommitted),balanceNow),cat:cat,item:item,src:src,meth:meth,months:months};
+}
+function renderRep(){
+  var el=$('#view-reports');
+  if(!canPrice){el.innerHTML='';return}
+  if(!loaded.jobs&&!localMode){el.innerHTML='<div class="empty">Loading…</div>';return}
+  var d=reportData(),r=repRange();
+  var presets=[['month','This month'],['last','Last month'],['q3','Last 3 months'],['year','This year'],['all','All time']];
+  var pre=presets.map(function(x){return '<button class="chip" data-act="rep-preset" data-v="'+x[0]+'" aria-pressed="'+(rep.preset===x[0])+'">'+x[1]+'</button>'}).join('');
+  var vatTxt=settings.vat?' before VAT':'';
+  var catRows=Object.keys(d.cat).sort(function(a,b){return d.cat[b].v-d.cat[a].v}).map(function(k){return '<tr><td>'+esc(k)+'</td><td class="num mono">'+d.cat[k].n+'</td><td class="num mono">'+esc(aed(d.cat[k].v))+'</td></tr>'}).join('');
+  var itemRows=Object.keys(d.item).sort(function(a,b){return d.item[b].v-d.item[a].v}).slice(0,10).map(function(k){var x=d.item[k];return '<tr><td>'+esc(x.name)+'<br><span class="f">'+esc(x.cat)+'</span></td><td class="num mono">'+x.n+'</td><td class="num mono">'+esc(aed(x.v))+'</td></tr>'}).join('');
+  var srcRows=Object.keys(d.src).sort(function(a,b){return d.src[b].n-d.src[a].n}).map(function(k){var x=d.src[k];return '<tr><td>'+esc(k)+'</td><td class="num mono">'+x.n+'</td><td class="num mono">'+x.w+'</td><td class="num mono">'+(x.n?Math.round(x.w/x.n*100):0)+'%</td></tr>'}).join('');
+  var methRows=Object.keys(d.meth).sort(function(a,b){return d.meth[b]-d.meth[a]}).map(function(k){return '<tr><td>'+esc(k)+'</td><td class="num mono">'+esc(aed(d.meth[k]))+'</td></tr>'}).join('');
+  var monRows=d.months.map(function(m){return '<tr><td>'+esc(monthLabel(m.k))+'</td><td class="num mono">'+m.enq+'</td><td class="num mono">'+m.won+'</td><td class="num mono">'+esc(aed(m.sales))+'</td><td class="num mono">'+esc(aed(m.coll))+'</td></tr>'}).join('');
+  var tbl=function(head,rows,empty){return rows?'<div class="scroll"><table class="rtab"><thead><tr>'+head+'</tr></thead><tbody>'+rows+'</tbody></table></div>':'<div class="empty">'+empty+'</div>'};
+  el.innerHTML='<div class="rangebar"><div class="chips" role="group" aria-label="Period">'+pre+'</div>'+
+      '<label class="f">From<input type="date" data-rf="from" value="'+esc(r.from)+'"></label><label class="f">To<input type="date" data-rf="to" value="'+esc(r.to)+'"></label>'+
+      '<button class="btn" data-act="rep-export">Download report (spreadsheet)</button><span class="f" id="repmsg" role="status"></span></div>'+
+    '<div class="tiles">'+
+      tile('Enquiries received',String(d.enq),'jobs created in the period')+
+      tile('Orders won',String(d.won),aed(d.sales)+vatTxt)+
+      tile('Conversion',Math.round(d.conv*100)+'%','of these enquiries are now orders')+
+      tile('Collected',aed(d.collected),'payments in the period')+
+      tile('Lost jobs',String(d.lost),aed(d.lostValue)+vatTxt+' quoted')+
+      tile('Still to collect now',aed(d.outstanding),'all confirmed orders')+
+    '</div><div class="panels">'+
+    '<div class="panel"><h3>Sales by category</h3>'+tbl('<th>Category</th><th class="num">Qty</th><th class="num">Value</th>',catRows,'No orders in this period.')+'<p class="note">Item value before discount'+(settings.vat?' and VAT':'')+', from orders signed in the period.</p></div>'+
+    '<div class="panel"><h3>Best-selling items</h3>'+tbl('<th>Item</th><th class="num">Qty</th><th class="num">Value</th>',itemRows,'No orders in this period.')+'</div>'+
+    '<div class="panel"><h3>Where enquiries come from</h3>'+tbl('<th>Source</th><th class="num">Enquiries</th><th class="num">Orders</th><th class="num">Rate</th>',srcRows,'No enquiries in this period.')+'</div>'+
+    '<div class="panel"><h3>Payments by method</h3>'+tbl('<th>Method</th><th class="num">Collected</th>',methRows,'No payments in this period.')+'</div>'+
+    '<div class="panel" style="grid-column:1/-1"><h3>Month by month</h3>'+tbl('<th>Month</th><th class="num">Enquiries</th><th class="num">Orders</th><th class="num">Sales'+(settings.vat?' (before VAT)':'')+'</th><th class="num">Collected</th>',monRows,'No data yet.')+'</div>'+
+    '</div><p class="note">An order counts from the day the customer signed (or, if no signature was recorded, from its last update). Payments recorded before the Payments section existed have no date, so they are left out of period totals.</p>';
+}
+
+/* ---------- more exports ---------- */
+function paymentsCsv(){
+  var head=['Date','Customer','Phone','Type','Method','Amount (AED)','Note','Invoice no.'];
+  var rows=allPayments().sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:0}).map(function(x){return [x.date,x.job.name||'',x.job.phone||'',x.p.kind||'',x.p.method||'',x.amount,x.p.note||'',x.job.invoiceNo||'']});
+  return csvText(head,rows);
+}
+function reportCsv(){
+  var d=reportData(),rows=[],push=function(sec,name,n,v){rows.push([sec,name,n,v])};
+  push('Period',(d.from||'start')+' to '+(d.to||'today'),'','');
+  push('Summary','Enquiries received',d.enq,'');
+  push('Summary','Orders won',d.won,d.sales);
+  push('Summary','Conversion %',Math.round(d.conv*100),'');
+  push('Summary','Lost jobs',d.lost,d.lostValue);
+  push('Summary','Collected','',d.collected);
+  push('Summary','Still to collect now','',d.outstanding);
+  Object.keys(d.cat).forEach(function(k){push('Category',k,d.cat[k].n,d.cat[k].v)});
+  Object.keys(d.item).forEach(function(k){push('Item',d.item[k].name,d.item[k].n,d.item[k].v)});
+  Object.keys(d.src).forEach(function(k){push('Source',k,d.src[k].n+' enquiries / '+d.src[k].w+' orders','')});
+  Object.keys(d.meth).forEach(function(k){push('Payment method',k,'',d.meth[k])});
+  d.months.forEach(function(m){push('Month',m.k,m.won+' orders',m.sales)});
+  return csvText(['Section','Name','Count','Amount (AED)'],rows);
+}
 
 /* ---------- boot ---------- */
 setSave('idle');
@@ -1428,7 +1748,7 @@ renderAll();
   db.collection('prices').onSnapshot(function(s){applySnap('prices',s)},onErr);
   db.collection('requests').onSnapshot(function(s){applySnap('requests',s)},onErr);
   db.doc('settings/invoice').onSnapshot(function(s){
-    if(s.exists){var v=s.data()||{};var pv=settings.vat;settings={trn:String(v.trn||''),terms:String(v.terms||''),vat:v.vat!==false,conditions:String(v.conditions||'')};if(pv!==settings.vat){renderDetail();renderList()}}
+    if(s.exists){var v=s.data()||{};var pv=settings.vat;settings={trn:String(v.trn||''),terms:String(v.terms||''),vat:v.vat!==false,conditions:String(v.conditions||''),depositPct:(v.depositPct==null?50:Math.min(100,Math.max(0,num(v.depositPct))))};if(pv!==settings.vat){renderDetail();renderList()}}
     if(tab==='prices'){var a=document.activeElement;if(!(a&&$('#view-prices').contains(a)))renderPrices()}
   },onErr);
 })();

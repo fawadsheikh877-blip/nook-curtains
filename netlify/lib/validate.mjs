@@ -51,6 +51,18 @@ export function checkDoc(col, id, body) {
       throw new HttpError(400, 'Invalid lines');
     }
     if (doc.interest !== undefined && !Array.isArray(doc.interest)) throw new HttpError(400, 'Invalid interest');
+    if (doc.payments !== undefined) {
+      if (!Array.isArray(doc.payments) || doc.payments.length > 100) throw new HttpError(400, 'Invalid payments');
+      for (const p of doc.payments) {
+        if (!isObj(p) || typeof p.amount !== 'number' || !isFinite(p.amount) || p.amount < 0 || p.amount > 1e8) {
+          throw new HttpError(400, 'Invalid payment amount');
+        }
+        if (p.date !== undefined && p.date !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(String(p.date))) throw new HttpError(400, 'Invalid payment date');
+        for (const k of ['kind', 'method', 'note']) {
+          if (p[k] !== undefined && (typeof p[k] !== 'string' || p[k].length > 120)) throw new HttpError(400, 'Invalid payment');
+        }
+      }
+    }
     return doc;
   }
   if (col === 'prices') {
@@ -66,7 +78,7 @@ export function checkDoc(col, id, body) {
   }
   if (col === 'settings') {
     if (id !== 'invoice') throw new HttpError(400, 'Unknown settings document');
-    return { trn: clean(str(doc.trn, 40, 'TRN')), terms: clean(str(doc.terms, 200, 'Terms')), vat: doc.vat !== false, conditions: clean(str(doc.conditions, 4000, 'Terms and conditions')) };
+    return { trn: clean(str(doc.trn, 40, 'TRN')), terms: clean(str(doc.terms, 200, 'Terms')), vat: doc.vat !== false, conditions: clean(str(doc.conditions, 4000, 'Terms and conditions')), depositPct: typeof doc.depositPct === 'number' && isFinite(doc.depositPct) ? Math.min(100, Math.max(0, Math.round(doc.depositPct))) : 50 };
   }
   throw new HttpError(405, 'This collection cannot be written here');
 }

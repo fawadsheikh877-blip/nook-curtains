@@ -73,6 +73,15 @@ In Netlify open **Site configuration, Environment variables** and add `STAFF_PAS
   - *Download backup* (admin): everything in one `.json` file. Do this weekly and keep the file somewhere safe.
   - *Restore from backup* (admin): pick a backup file. The desk shows what is in it, saves a copy of the current data first, then replaces the data with the file. Needs a connection. Files up to 5 MB.
 
+## Dashboard, payments and reports
+
+- **Dashboard** (everyone): open jobs, today's visits, new requests, what needs attention, jobs by stage. The owner (admin) also sees money: collected this month, still to collect, orders won, quotes waiting.
+- **Payments and deposits** (inside each job): record a deposit, instalments and the final payment with date, method and note. The invoice shows the payments received and the balance. The standard deposit percentage is set by the admin in the Prices tab, under Invoice details (default 50%).
+- **Payments tab** (admin): balances still to collect, orders with no deposit yet, recent payments, and a spreadsheet export.
+- **Reports tab** (admin): pick a period, then see enquiries, orders won, conversion, collected, lost jobs, sales by category and item, enquiry sources, payments by method and a month-by-month table. Download it as a spreadsheet.
+- The Payments and Reports tabs are hidden from staff accounts. This is a screen-level separation: staff sessions can still read job data through the API, so do not treat it as a security boundary.
+- A deposit typed in the old single Deposit box is kept and shows as an undated payment called Earlier.
+
 ## Working offline
 
 - Open the desk (and the customer page) once with a connection on each phone or computer. After that both open without internet.

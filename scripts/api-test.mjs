@@ -135,6 +135,23 @@ await test('restore: admin only, validated, replaces data', async () => {
   assert.equal((await A('POST', '/api/restore', { cookie: admin, body: exp })).status, 200);
 });
 
+await test('payments and deposit setting are validated', async () => {
+  const ok = { name: 'Pay Test', stage: 'confirmed', payments: [{ id: 'p1', date: '2026-10-01', amount: 500, kind: 'Deposit', method: 'Cash', note: '' }] };
+  assert.equal((await A('PUT', '/api/jobs/paytest1', { cookie: staff, body: ok })).status, 200);
+  for (const bad of [
+    { ...ok, payments: 'x' },
+    { ...ok, payments: [{ amount: -5 }] },
+    { ...ok, payments: [{ amount: 'a' }] },
+    { ...ok, payments: [{ amount: 5, date: 'tomorrow' }] },
+    { ...ok, payments: [{ amount: 5, note: 'x'.repeat(121) }] },
+    { ...ok, payments: Array.from({ length: 101 }, () => ({ amount: 1 })) },
+  ]) assert.equal((await A('PUT', '/api/jobs/paytest1', { cookie: staff, body: bad })).status, 400);
+  assert.equal((await A('PUT', '/api/settings/invoice', { cookie: admin, body: { trn: '', vat: true, depositPct: 40 } })).status, 200);
+  assert.equal((await A('GET', '/api/all', { cookie: admin })).data.settings.invoice.depositPct, 40);
+  assert.equal((await A('PUT', '/api/settings/invoice', { cookie: admin, body: { trn: '', vat: true } })).status, 200);
+  assert.equal((await A('GET', '/api/all', { cookie: admin })).data.settings.invoice.depositPct, 50);
+});
+
 await test('validation: bad stage, bad price, bad ids, oversize, unknown settings doc', async () => {
   assert.equal((await A('PUT', '/api/jobs/j2', { cookie: staff, body: { stage: 'weird' } })).status, 400);
   assert.equal((await A('PUT', '/api/prices/p2', { cookie: admin, body: { name: 'x', unit: 'kg', rate: 1 } })).status, 400);
