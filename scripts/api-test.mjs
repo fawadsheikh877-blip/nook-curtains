@@ -103,6 +103,35 @@ await test('prices and settings: admin only', async () => {
   assert.equal((await A('GET', '/api/all', { cookie: admin })).data.settings.invoice.vat, false);
 });
 
+await test('restore: admin only, validated, replaces data', async () => {
+  const job = { name: 'Restored Client', stage: 'quoted', lines: [] };
+  const price = { name: 'Roller', category: 'Blinds', unit: 'sqm', rate: 90, min: 1 };
+  const backup = {
+    exportedAt: 'x', jobs: { j1: job }, prices: { p9: price },
+    requests: { r1: { name: 'Ali', phone: '0501234567', needs: ['Curtains'], createdAt: 123 } },
+    settings: { invoice: { trn: '', terms: 'Net 7', vat: false } },
+  };
+  assert.equal((await A('POST', '/api/restore', { cookie: staff, body: backup })).status, 403);
+  assert.equal((await A('POST', '/api/restore', { body: backup })).status, 401);
+  // invalid entries change nothing
+  const before = (await A('GET', '/api/all', { cookie: admin })).data;
+  assert.equal((await A('POST', '/api/restore', { cookie: admin, body: { jobs: { j1: { stage: 'nonsense' } } } })).status, 400);
+  assert.equal((await A('POST', '/api/restore', { cookie: admin, body: { hello: 1 } })).status, 400);
+  assert.equal((await A('POST', '/api/restore', { cookie: admin, body: { jobs: { 'bad id': job } } })).status, 400);
+  assert.deepEqual((await A('GET', '/api/all', { cookie: admin })).data.jobs, before.jobs);
+  const r = await A('POST', '/api/restore', { cookie: admin, body: backup });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.data.restored, { jobs: 1, prices: 1, requests: 1, settings: 1 });
+  const after = (await A('GET', '/api/all', { cookie: admin })).data;
+  assert.deepEqual(Object.keys(after.jobs), ['j1']);
+  assert.deepEqual(Object.keys(after.prices), ['p9']);
+  assert.equal(after.requests.r1.createdAt, 123);
+  assert.equal(after.settings.invoice.vat, false);
+  // a backup made by /api/export restores cleanly
+  const exp = (await A('GET', '/api/export', { cookie: admin })).data;
+  assert.equal((await A('POST', '/api/restore', { cookie: admin, body: exp })).status, 200);
+});
+
 await test('validation: bad stage, bad price, bad ids, oversize, unknown settings doc', async () => {
   assert.equal((await A('PUT', '/api/jobs/j2', { cookie: staff, body: { stage: 'weird' } })).status, 400);
   assert.equal((await A('PUT', '/api/prices/p2', { cookie: admin, body: { name: 'x', unit: 'kg', rate: 1 } })).status, 400);

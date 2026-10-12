@@ -50,6 +50,17 @@ button{cursor:pointer}
 .tabs button{background:transparent;border:0;border-radius:6px;padding:8px 12px;font-weight:600;color:inherit;opacity:.8}
 .tabs button[aria-selected="true"]{background:var(--accent-ink);color:var(--accent);opacity:1}
 .savestate{font-size:12px;opacity:.9;font-family:var(--f-mono)}
+/* phones: name and buttons on the first row, the three tabs share the second row */
+@media (max-width:760px){
+  .top .wrap{gap:8px 10px;padding-block:8px}
+  .top .brand{flex:1 1 auto;min-width:0}
+  .top .brand b{font-size:17px;white-space:nowrap}
+  .top .nook-hb{order:2;flex:0 0 auto}
+  .tabs{order:3;flex:1 0 100%;gap:6px}
+  .tabs button{flex:1 1 0;min-width:0;padding:9px 4px;font-size:14px;text-align:center;white-space:nowrap}
+  .savestate{order:4;flex:1 0 100%;font-size:11px}
+  .savestate:empty,.savestate[data-s="saving"],.savestate[data-s="saved"],.savestate[data-s="idle"]{display:none}
+}
 
 main{padding-block:16px 28px}
 .banner{background:var(--accent-soft);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:12px}
@@ -198,6 +209,8 @@ td.num input{text-align:right;font-family:var(--f-mono)}
   var COLS = ['jobs', 'prices', 'requests', 'settings'];
 
   var role = null, inflight = 0, wv = 0, etag = null, timer = null, polling = false, started = false, okOnce = false;
+  var synced = false, offline = false, outbox = [], flushing = false, failedCount = 0, needSignIn = false, justSynced = false, retryTimer = null;
+  var CACHE_DAYS = 7;             // how long a device may open the desk offline without signing in again (matches the login cookie)
   var listeners = { jobs: [], prices: [], requests: [], settings: [] };
   var last = {};
   var readyResolve;
@@ -212,6 +225,52 @@ td.num input{text-align:right;font-family:var(--f-mono)}
       body: body === undefined ? undefined : JSON.stringify(body)
     });
   }
+  /* ---------- this device's saved copy (IndexedDB): last known data and changes waiting to sync ---------- */
+  var idbp = null;
+  function idb() {
+    if (idbp) return idbp;
+    idbp = new Promise(function (res) {
+      try {
+        var r = indexedDB.open('nook-desk', 1);
+        r.onupgradeneeded = function () { r.result.createObjectStore('kv'); };
+        r.onsuccess = function () { res(r.result); };
+        r.onerror = function () { res(null); };
+        r.onblocked = function () { res(null); };
+      } catch (e) { res(null); }
+    });
+    return idbp;
+  }
+  function kv(mode, fn) {
+    return idb().then(function (d) {
+      if (!d) return undefined;
+      return new Promise(function (res) {
+        try {
+          var req = fn(d.transaction('kv', mode).objectStore('kv'));
+          req.onsuccess = function () { res(req.result); };
+          req.onerror = function () { res(undefined); };
+        } catch (e) { res(undefined); }
+      });
+    });
+  }
+  function kvGet(k) { return kv('readonly', function (s) { return s.get(k); }); }
+  function kvSet(k, v) { return kv('readwrite', function (s) { return s.put(v, k); }); }
+  function kvDel(k) { return kv('readwrite', function (s) { return s.delete(k); }); }
+  function saveOutbox() {
+    return kvSet('outbox', outbox.map(function (o) { return { col: o.col, id: o.id, method: o.method, body: o.body, t: o.t }; }));
+  }
+  var cacheTimer = null;
+  function saveCache() {
+    clearTimeout(cacheTimer);
+    cacheTimer = setTimeout(function () {
+      if (!role || !synced) return;
+      kvSet('cache', { role: role, savedAt: Date.now(), data: last });
+    }, 300);
+  }
+  function wipeLocal() {
+    clearTimeout(cacheTimer);
+    return Promise.all([kvDel('cache'), kvDel('outbox')]);
+  }
+
   function rid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); }
 
   /* ---------- sign in ---------- */
@@ -272,13 +331,114 @@ td.num input{text-align:right;font-family:var(--f-mono)}
     return v === undefined ? { id: id, exists: false, data: function () { return undefined; } }
                            : { id: id, exists: true, data: function () { return v; } };
   }
+  /* Every save goes into a queue kept on this device, then is sent in order. If there is no connection
+     the save simply stays queued and is sent when the connection is back. */
   function write(method, path, body) {
+    var parts = path.split('/'), col = parts[1], id = decodeURIComponent(parts[2]);
     inflight++; wv++;
-    return api(method, path, body).then(function (r) {
-      if (r.status === 401) { sessionLost(); throw { code: 'unauthorized' }; }
-      if (!r.ok) throw { code: r.status === 403 ? 'forbidden' : 'invalid_argument' };
+    return new Promise(function (resolve, reject) {
+      var waiter = { resolve: resolve, reject: reject };
+      var same = outbox.filter(function (o) { return o.col === col && o.id === id && !o.sending; })[0];
+      if (same) { same.method = method; same.body = body; same.waiters.push(waiter); }
+      else outbox.push({ col: col, id: id, method: method, body: body, t: Date.now(), sending: false, waiters: [waiter] });
+      applyLocal(col, id, method === 'DELETE' ? undefined : body);
+      saveOutbox();
+      updateChip();
+      flushOutbox();
     }).finally(function () { inflight--; wv++; etag = null; schedule(1500); });
   }
+  function applyLocal(col, id, doc) {
+    if (!synced) return;                  // nothing to keep a copy of until the first full read
+    if (!last[col]) last[col] = {};
+    if (doc === undefined) delete last[col][id];
+    else last[col][id] = JSON.parse(JSON.stringify(doc));
+    saveCache();
+  }
+  function settle(op, how, err) {
+    op.waiters.splice(0).forEach(function (w) { how === 'ok' ? w.resolve() : w.reject(err); });
+  }
+  function setOffline(v) {
+    if (offline === v) return;
+    offline = v;
+    if (!v && (outbox.length || justSynced)) justSynced = true;
+    updateChip();
+  }
+  function retryLater(ms) {
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(function () { flushOutbox().then(function () { if (!outbox.length) poll(); }); }, ms);
+  }
+  async function flushOutbox() {
+    if (flushing) return;
+    flushing = true;
+    try {
+      while (outbox.length) {
+        var op = outbox[0];
+        op.sending = true;
+        var r;
+        try {
+          r = await api(op.method, '/' + op.col + '/' + encodeURIComponent(op.id), op.method === 'DELETE' ? undefined : op.body);
+        } catch (e) {                         // no connection: keep it queued
+          op.sending = false;
+          setOffline(true); settle(op, 'ok'); updateChip(); retryLater(8000);
+          return;
+        }
+        if (r.status === 401) {               // signed out: keep the changes, ask for the password
+          op.sending = false; needSignIn = true; settle(op, 'ok'); updateChip(); sessionLost();
+          return;
+        }
+        if (r.status >= 500 || r.status === 429 || r.status === 409) {   // server busy: try again shortly
+          op.sending = false; settle(op, 'ok'); updateChip(); retryLater(10000);
+          return;
+        }
+        outbox.shift();
+        if (r.ok) { setOffline(false); settle(op, 'ok'); }
+        else {                                // refused for good (not allowed, invalid): drop it and say so
+          failedCount++;
+          settle(op, 'fail', { code: r.status === 403 ? 'forbidden' : 'invalid_argument' });
+        }
+        saveOutbox();
+        updateChip();
+      }
+      if (justSynced && !outbox.length) { setTimeout(function () { justSynced = false; updateChip(); }, 4000); }
+      needSignIn = false;
+      etag = null; schedule(500);
+    } finally {
+      flushing = false;
+      updateChip();
+    }
+  }
+
+  /* ---------- small status note: offline, waiting changes, synced ---------- */
+  var chip = null;
+  function updateChip() {
+    if (!document.body) return;
+    var n = outbox.length, msg = '', kind = '';
+    if (needSignIn) { msg = 'Sign in again to save ' + n + ' waiting change' + (n === 1 ? '' : 's') + '.'; kind = 'warn'; }
+    else if (failedCount) { msg = failedCount + ' change' + (failedCount === 1 ? ' was' : 's were') + ' not saved (not allowed or invalid). Tap to dismiss.'; kind = 'warn'; }
+    else if (offline) {
+      msg = 'Offline. ' + (n ? n + ' change' + (n === 1 ? ' is' : 's are') + ' saved on this device and will sync when you are back online.' : 'You can keep working. Changes sync when you are back online.');
+      kind = 'off';
+    }
+    else if (n) { msg = 'Syncing ' + n + ' change' + (n === 1 ? '' : 's') + '…'; kind = 'sync'; }
+    else if (justSynced) { msg = 'Back online. All changes synced.'; kind = 'ok'; }
+    if (!msg) { if (chip) chip.hidden = true; return; }
+    if (!chip) {
+      chip = document.createElement('div');
+      chip.id = 'nook-net';
+      chip.setAttribute('role', 'status');
+      chip.setAttribute('aria-live', 'polite');
+      chip.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:40;max-width:min(420px,calc(100vw - 24px));padding:9px 12px;border-radius:8px;font-size:13px;line-height:1.35;box-shadow:0 2px 10px rgba(0,0,0,.25);cursor:default';
+      chip.addEventListener('click', function () { if (failedCount) { failedCount = 0; updateChip(); } });
+      document.body.appendChild(chip);
+    }
+    chip.hidden = false;
+    chip.textContent = msg;
+    var c = { off: ['#2b2b2b', '#fff'], warn: ['#8a2c1f', '#fff'], sync: ['#1B5B58', '#fff'], ok: ['#1f6b3a', '#fff'] }[kind];
+    chip.style.background = c[0]; chip.style.color = c[1];
+  }
+  window.addEventListener('online', function () { retryLater(200); });
+  window.addEventListener('offline', function () { setOffline(true); });
+
   function docRef(col, id) {
     return {
       id: id,
@@ -323,6 +483,7 @@ td.num input{text-align:right;font-family:var(--f-mono)}
     polling = true;
     var delay = POLL_MS;
     try {
+      if (outbox.length) { flushOutbox(); delay = 1500; return; }   // our own waiting changes go first
       var v = wv;
       var r = await api('GET', '/all', undefined, etag ? { 'If-None-Match': etag } : {});
       if (r.status === 401) { sessionLost(); return; }
@@ -330,18 +491,22 @@ td.num input{text-align:right;font-family:var(--f-mono)}
         if (!r.ok) throw new Error('http ' + r.status);
         var j = await r.json();
         // If something was saved while this request was in flight, the reading may be out of date: discard it.
-        if (wv !== v || inflight > 0) { delay = 800; }
+        if (wv !== v || inflight > 0 || outbox.length) { delay = 800; }
         else {
           etag = r.headers.get('ETag');
           COLS.forEach(function (c) {
             last[c] = j[c] || {};
             listeners[c].slice().forEach(function (l) { deliver(c, l); });
           });
+          synced = true;
+          saveCache();
         }
       }
       okOnce = true;
+      setOffline(false);
     } catch (e) {
       if (!okOnce) fail();
+      else { setOffline(true); delay = 10000; }
     } finally {
       polling = false;
       schedule(delay);
@@ -386,44 +551,213 @@ td.num input{text-align:right;font-family:var(--f-mono)}
     }
   };
 
-  /* ---------- header buttons: sign out, backup ---------- */
+  /* ---------- header: Data menu (export, backup, restore) and sign out ---------- */
+  var BTN = 'background:transparent;border:1px solid currentColor;color:inherit;border-radius:6px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer';
   function headerButton(label, onClick) {
     var b = document.createElement('button');
     b.type = 'button';
     b.textContent = label;
-    b.style.cssText = 'background:transparent;border:1px solid currentColor;color:inherit;border-radius:6px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer';
+    b.style.cssText = BTN;
     b.addEventListener('click', onClick);
     return b;
   }
-  function backup(btn) {
-    btn.disabled = true;
-    fetch('/api/export', { credentials: 'same-origin' }).then(function (r) {
+  function note(text, isError) {
+    var d = document.getElementById('nook-note');
+    if (!d) {
+      d = document.createElement('div');
+      d.id = 'nook-note';
+      d.setAttribute('role', 'status');
+      d.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:70px;z-index:60;max-width:min(520px,calc(100vw - 24px));padding:10px 14px;border-radius:8px;font-size:13px;box-shadow:0 2px 12px rgba(0,0,0,.3);cursor:pointer';
+      d.addEventListener('click', function () { d.remove(); });
+      document.body.appendChild(d);
+    }
+    d.style.background = isError ? '#8a2c1f' : '#1B5B58';
+    d.style.color = '#fff';
+    d.textContent = text;
+    clearTimeout(note.t);
+    note.t = setTimeout(function () { d.remove(); }, isError ? 9000 : 5000);
+  }
+  function today() { return new Date().toISOString().slice(0, 10); }
+
+  function downloadBackup(btn) {
+    if (offline) { note('Backups need a connection. Try again when you are back online.', true); return Promise.reject({ code: 'offline' }); }
+    return fetch('/api/export', { credentials: 'same-origin' }).then(function (r) {
       if (!r.ok) throw new Error('export failed');
       return r.blob();
     }).then(function (blob) {
-      return downloads.save({ filename: 'nook-backup-' + new Date().toISOString().slice(0, 10) + '.json', data: blob });
-    }).catch(function () { alert('The backup could not be downloaded.'); }).finally(function () { btn.disabled = false; });
+      return downloads.save({ filename: 'nook-backup-' + today() + '.json', data: blob });
+    });
   }
+
+  /* Restore: pick a backup file, confirm, save a copy of today's data, then replace everything with the file. */
+  function askConfirm(title, body, okLabel) {
+    return new Promise(function (resolve) {
+      var d = document.createElement('div');
+      d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true');
+      d.style.cssText = 'position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
+      d.innerHTML = '<div style="background:var(--surface,#fff);color:var(--ink,#18262A);border-radius:10px;padding:22px;width:min(440px,100%);display:flex;flex-direction:column;gap:12px">' +
+        '<h3 style="margin:0;font-size:18px"></h3><p style="margin:0;line-height:1.45;white-space:pre-line"></p>' +
+        '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap"><button type="button" class="btn" data-x="no">Cancel</button><button type="button" class="btn primary" data-x="yes"></button></div></div>';
+      d.querySelector('h3').textContent = title;
+      d.querySelector('p').textContent = body;
+      d.querySelector('[data-x="yes"]').textContent = okLabel;
+      function done(v) { d.remove(); resolve(v); }
+      d.addEventListener('click', function (e) { var x = e.target && e.target.getAttribute && e.target.getAttribute('data-x'); if (x) done(x === 'yes'); });
+      d.addEventListener('keydown', function (e) { if (e.key === 'Escape') done(false); });
+      document.body.appendChild(d);
+      d.querySelector('[data-x="no"]').focus();
+    });
+  }
+  function restoreFlow() {
+    if (offline) { note('Restoring needs a connection. Try again when you are back online.', true); return; }
+    if (outbox.length) { note('Wait until the waiting changes have synced, then try again.', true); return; }
+    var inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = '.json,application/json';
+    inp.addEventListener('change', function () {
+      var f = inp.files && inp.files[0];
+      if (!f) return;
+      if (f.size > 5 * 1024 * 1024) { note('That file is too large to be a backup (limit 5 MB).', true); return; }
+      f.text().then(function (text) {
+        var data;
+        try { data = JSON.parse(text); } catch (e) { note('That file is not a backup made by this app.', true); return; }
+        var has = ['jobs', 'prices', 'requests', 'settings'].filter(function (k) { return data && typeof data[k] === 'object' && data[k] && !Array.isArray(data[k]); });
+        if (!has.length) { note('That file is not a backup made by this app.', true); return; }
+        var count = function (k) { return has.indexOf(k) < 0 ? 0 : Object.keys(data[k]).length; };
+        var when = data.exportedAt ? new Date(data.exportedAt) : null;
+        var lines = 'Backup' + (when && !isNaN(when) ? ' from ' + when.toLocaleString('en-GB') : '') + ': ' + count('jobs') + ' jobs, ' + count('prices') + ' price items, ' + count('requests') + ' customer requests.\n\n' +
+          'This REPLACES what is in the desk now' + (has.length < 4 ? ' (for the parts the file contains)' : '') + '. A copy of the current data downloads first, so you can undo this.';
+        return askConfirm('Restore this backup?', lines, 'Replace everything').then(function (yes) {
+          if (!yes) return;
+          note('Saving a copy of the current data…');
+          return downloadBackup().then(function () {
+            return api('POST', '/restore', data);
+          }).then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (j) {
+              if (r.status === 401) { sessionLost(); return; }
+              if (!r.ok) { note('Not restored: ' + (j.error || 'the server refused the file') + '. Nothing was changed.', true); return; }
+              return wipeLocal().then(function () {
+                note('Backup restored. Reloading…');
+                setTimeout(function () { location.reload(); }, 900);
+              });
+            });
+          });
+        });
+      }).catch(function () { note('Could not read or restore the file. Nothing was changed.', true); });
+    });
+    inp.click();
+  }
+
+  function exportCsv(which) {
+    var x = window.NookExport;
+    if (!x || !x[which]) { note('Export is not available.', true); return; }
+    x[which]().then(function () { note('Spreadsheet saved. Open it with Excel or Google Sheets.'); }, function () { note('Could not save the file. Try again.', true); });
+  }
+
+  function dataMenu() {
+    var wrap = document.createElement('div');
+    wrap.className = 'nook-hb';
+    wrap.style.cssText = 'position:relative;display:inline-block';
+    var btn = headerButton('Data ▾', function (e) { e.stopPropagation(); toggle(); });
+    btn.setAttribute('aria-haspopup', 'menu'); btn.setAttribute('aria-expanded', 'false');
+    var menu = document.createElement('div');
+    menu.setAttribute('role', 'menu'); menu.hidden = true;
+    menu.style.cssText = 'position:absolute;right:0;top:calc(100% + 6px);z-index:45;min-width:230px;background:#fff;color:#18262A;border:1px solid #D3D9D5;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);padding:6px;display:flex;flex-direction:column';
+    function item(label, hint, fn) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.setAttribute('role', 'menuitem');
+      b.style.cssText = 'text-align:left;background:transparent;border:0;border-radius:6px;padding:8px 10px;font:inherit;font-size:13px;color:inherit;cursor:pointer';
+      b.innerHTML = '<span style="display:block;font-weight:600"></span><span style="display:block;font-size:12px;opacity:.7"></span>';
+      b.firstChild.textContent = label; b.lastChild.textContent = hint;
+      b.addEventListener('mouseenter', function () { b.style.background = '#EEF2EF'; });
+      b.addEventListener('mouseleave', function () { b.style.background = 'transparent'; });
+      b.addEventListener('click', function () { close(); fn(); });
+      menu.appendChild(b);
+    }
+    item('Export jobs (spreadsheet)', 'One row per customer job. Opens in Excel.', function () { exportCsv('jobs'); });
+    item('Export windows and items', 'One row per window or item, with prices.', function () { exportCsv('items'); });
+    if (role === 'admin') {
+      item('Download backup', 'Everything, to keep safe (.json file).', function () {
+        downloadBackup().then(function () { note('Backup saved. Keep the file somewhere safe.'); }, function (e) { if (!(e && e.code === 'offline')) note('The backup could not be downloaded.', true); });
+      });
+      item('Restore from backup…', 'Replace the data with a backup file.', restoreFlow);
+    }
+    function toggle() { menu.hidden ? open() : close(); }
+    function open() { menu.hidden = false; btn.setAttribute('aria-expanded', 'true'); }
+    function close() { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+    document.addEventListener('click', function (e) { if (!wrap.contains(e.target)) close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+    wrap.appendChild(btn); wrap.appendChild(menu);
+    return wrap;
+  }
+
+  function signOut() {
+    var go = function () {
+      wipeLocal().then(function () {
+        return api('POST', '/logout', {}).catch(function () {});
+      }).then(function () { location.reload(); });
+    };
+    if (outbox.length) {
+      askConfirm('Sign out now?', outbox.length + ' change' + (outbox.length === 1 ? ' has' : 's have') + ' not synced yet. If you sign out they will be lost.', 'Sign out anyway').then(function (yes) { if (yes) go(); });
+    } else if (offline) {
+      askConfirm('Sign out while offline?', 'This removes the saved data from this device. You will need a connection to sign in again.', 'Sign out').then(function (yes) { if (yes) go(); });
+    } else go();
+  }
+
   ready.then(function () {
     var bar = document.querySelector('.top .wrap');
     if (!bar) return;
-    if (role === 'admin') {
-      var bk = headerButton('Download backup', function () { backup(bk); });
-      bar.appendChild(bk);
-    }
-    bar.appendChild(headerButton('Sign out', function () {
-      api('POST', '/logout', {}).finally(function () { location.reload(); });
-    }));
+    bar.appendChild(dataMenu());
+    var so = headerButton('Sign out', signOut);
+    so.className = 'nook-hb';
+    bar.appendChild(so);
+    updateChip();
   });
 
   /* ---------- start ---------- */
+  function loadOutbox() {
+    return kvGet('outbox').then(function (list) {
+      if (Array.isArray(list) && list.length) {
+        outbox = list.map(function (o) { return { col: o.col, id: o.id, method: o.method, body: o.body, t: o.t, sending: false, waiters: [] }; });
+      }
+    });
+  }
+  function startOffline() {
+    return kvGet('cache').then(function (c) {
+      var fresh = c && c.role && c.data && Date.now() - c.savedAt < CACHE_DAYS * 86400000;
+      if (!fresh) {
+        showFatal('You are offline and this device has no saved copy yet. Connect to the internet and open the desk once, then it will also work offline.');
+        return;
+      }
+      role = c.role;
+      COLS.forEach(function (k) { last[k] = c.data[k] || {}; });
+      okOnce = true; offline = true; synced = true;
+      return loadOutbox().then(function () {
+        outbox.forEach(function (o) { applyLocal(o.col, o.id, o.method === 'DELETE' ? undefined : o.body); });
+        readyResolve(); updateChip(); retryLater(8000);
+      });
+    });
+  }
   api('GET', '/session').then(function (r) {
-    if (r.ok) return r.json().then(function (j) { role = j.role; readyResolve(); });
+    if (r.ok) return r.json().then(function (j) {
+      role = j.role;
+      return loadOutbox().then(function () {
+        readyResolve();
+        if (outbox.length) { justSynced = true; flushOutbox(); }
+      });
+    });
     if (r.status === 503) { showFatal('This site is not set up yet. In Netlify, add the STAFF_PASSWORD, ADMIN_PASSWORD and AUTH_SECRET settings, then deploy again.'); return; }
-    return loginFlow().then(readyResolve);
+    return loginFlow().then(function () {
+      return loadOutbox().then(function () { readyResolve(); if (outbox.length) flushOutbox(); });
+    });
+  }).catch(function () {
+    return startOffline();
   }).catch(function () {
     showFatal('Could not reach the server. Check your connection and reload the page.');
   });
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () {}); });
+  }
 })();
 
 </script>
@@ -504,7 +838,7 @@ function quoteText(j){
 
 /* ---------- saving ---------- */
 function setSave(state){
-  var el=$('#savestate');
+  var el=$('#savestate');el.dataset.s=state;
   el.textContent={saving:'Saving…',saved:'All changes saved',error:'Not saved. Check connection',local:'Not kept: no shared storage',idle:''}[state]||'';
 }
 function plain(o){var c=Object.assign({},o);delete c.id;return JSON.parse(JSON.stringify(c))}
@@ -940,6 +1274,47 @@ document.addEventListener('change',function(e){
   var j=sel&&jobs.get(sel);if(j)refreshCalc(j);
   renderList();
 });
+
+/* ---------- spreadsheet export (CSV opens in Excel and Google Sheets) ---------- */
+function csvCell(v){
+  var t=v==null?'':String(v);
+  if(typeof v==='number'&&isFinite(v))return String(v);
+  /* a cell that starts like a formula would run in Excel, so mark it as text */
+  if(/^[=@\t\r]/.test(t)||/^[+-][^0-9 ()\-.]/.test(t))t="'"+t;
+  return '"'+t.replace(/"/g,'""')+'"';
+}
+function csvText(head,rows){
+  return '\uFEFF'+[head].concat(rows).map(function(r){return r.map(csvCell).join(',')}).join('\r\n')+'\r\n';
+}
+function sortedJobs(){return Array.from(jobs.values()).sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0)})}
+function dateText(ms){return ms?ymd(new Date(ms)):''}
+function jobsCsv(){
+  var head=['Created','Customer','Phone','Email','Area','How they reached us','Stage','Interested in','Visit type','Visit date and time','Notes','Windows and items','Subtotal (AED)','Discount (AED)','VAT (AED)','Total (AED)','Deposit (AED)','Balance due (AED)','Invoice no.','Invoice date'];
+  var rows=sortedJobs().map(function(j){
+    var t=totals(j),has=invoiceReady(j);
+    return [dateText(j.createdAt),j.name||'',j.phone||'',j.email||'',j.area||'',j.source||'',(STAGE[j.stage]||STAGE.enquiry).label,(j.interest||[]).join(', '),j.visit||'',j.apptAt||'',j.notes||'',(j.lines||[]).length,t.sub,t.disc,t.vat,t.total,num(j.deposit),has?dueOf(j):'',has?(j.invoiceNo||''):'',has?(j.invoiceDate||''):''];
+  });
+  return csvText(head,rows);
+}
+function itemsCsv(){
+  var head=['Customer','Phone','Stage','Room or window','Item','Category','Width (cm)','Drop (cm)','Qty','Amount (AED)'];
+  var rows=[];
+  sortedJobs().forEach(function(j){
+    (j.lines||[]).forEach(function(l){
+      var p=prices.get(l.priceId);
+      rows.push([j.name||'',j.phone||'',(STAGE[j.stage]||STAGE.enquiry).label,l.room||'',p?p.name:'(item removed)',p?(p.category||''):'',num(l.w),num(l.h),num(l.qty)||1,lineAmount(l)]);
+    });
+  });
+  return csvText(head,rows);
+}
+function saveCsv(name,text){
+  if(!dl)return Promise.reject({code:'unavailable'});
+  return dl.save({filename:name+'-'+ymd(new Date())+'.csv',data:text});
+}
+window.NookExport={
+  jobs:function(){return saveCsv('nook-jobs',jobsCsv())},
+  items:function(){return saveCsv('nook-items',itemsCsv())}
+};
 
 /* ---------- boot ---------- */
 setSave('idle');

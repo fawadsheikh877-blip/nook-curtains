@@ -66,7 +66,20 @@ In Netlify open **Site configuration, Environment variables** and add `STAFF_PAS
 - **New requests** show at the top of the Jobs list. "Create job" turns one into an enquiry with the details filled in.
 - **Messages from WhatsApp or email:** "Paste a customer request" still works for any message that has `Name:` and `Phone:` lines.
 - **Invoices:** when a job reaches "Fabric confirmed", an Invoice section appears. "Download invoice" saves a file. Open it and press Print, or choose Save as PDF in the print window. The admin can untick **Charge 5% VAT** (Prices tab, Invoice details) if the business is not VAT-registered; quotes and invoices then show no VAT line. With VAT on and a TRN set the document is titled "Tax invoice". Invoice numbers are suggested (date plus a job code) and can be edited. They are not strictly sequential.
-- **Backups:** the admin sees "Download backup" in the header. It saves everything as one file. Do this weekly.
+- **Data menu** (top right of the desk):
+  - *Export jobs (spreadsheet)* and *Export windows and items*: CSV files that open in Excel or Google Sheets. Staff and admin can use them, online or offline.
+  - *Download backup* (admin): everything in one `.json` file. Do this weekly and keep the file somewhere safe.
+  - *Restore from backup* (admin): pick a backup file. The desk shows what is in it, saves a copy of the current data first, then replaces the data with the file. Needs a connection. Files up to 5 MB.
+
+## Working offline
+
+- Open the desk (and the customer page) once with a connection on each phone or computer. After that both open without internet.
+- Offline, the desk shows the data as it was when last online. New and changed jobs are kept on that device and sent automatically when the connection returns. A note at the bottom left says what is happening.
+- If two people change the same job while one is offline, the last one to sync wins for that job.
+- The saved copy is removed when you press Sign out. Signing out with unsynced changes asks first, because those changes would be lost.
+- A device that has not been online for 7 days must connect and sign in again.
+- Not available offline: backup, restore, receiving new customer requests, and the customer form (it tells the customer to try again or use WhatsApp).
+- Anyone who can open the browser on a signed-in device can read its saved copy, so sign out on shared computers.
 
 ## Good to know
 
@@ -94,6 +107,7 @@ Open http://localhost:8888 (customer page) and http://localhost:8888/desk/ (staf
 netlify.toml                  Netlify settings and security headers
 package.json                  one dependency: @netlify/blobs
 public/logo.png, logo-mark.png  logo files (replace them to change the logo)
+public/sw.js                  lets the pages open offline
 public/index.html             customer page
 public/desk/index.html        staff desk
 netlify/functions/api.mjs     staff API (login, jobs, prices, settings, backup, health)

@@ -8,12 +8,13 @@
 //   PUT    /api/:collection/:id   staff (admin for prices and settings): save one document
 //   DELETE /api/:collection/:id   staff (admin for prices and settings): delete one document
 //   GET    /api/export            admin: everything as a downloadable backup
+//   POST   /api/restore           admin: replace the data with the contents of a backup file
 import { createHash } from 'node:crypto';
 import { clearCookie, clientKey, cookieHeader, env, makeToken, readSession, roleFor } from '../lib/auth.mjs';
 import {
   COLLECTIONS, addFail, clearFails, etagOf, failCount, mutate, readCollection, selfTest,
 } from '../lib/store.mjs';
-import { HttpError, LIMITS, checkDoc, checkId } from '../lib/validate.mjs';
+import { HttpError, LIMITS, checkDoc, checkId, checkRequest } from '../lib/validate.mjs';
 
 export const config = {
   path: '/api/*',
@@ -92,6 +93,49 @@ async function exportAll() {
   return json(data, 200, { 'Content-Disposition': `attachment; filename="nook-backup-${day}.json"` });
 }
 
+// Replace the data with the contents of a backup file made by "Download backup".
+// Everything is checked first; nothing is changed unless the whole file is valid.
+// Only the collections present in the file are replaced.
+async function restore(req) {
+  const body = await readJson(req, 5 * 1024 * 1024);
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw new HttpError(400, 'This is not a Nook Curtains backup file');
+  const next = {};
+  for (const col of ['jobs', 'prices', 'requests', 'settings']) {
+    if (body[col] === undefined) continue;
+    const src = body[col];
+    if (!src || typeof src !== 'object' || Array.isArray(src)) throw new HttpError(400, `The backup's ${col} section is not valid`);
+    const ids = Object.keys(src);
+    if (ids.length > LIMITS[col]) throw new HttpError(400, `The backup has too many ${col} (limit ${LIMITS[col]})`);
+    const out = {};
+    for (const id of ids) {
+      try {
+        checkId(id);
+        if (col === 'requests') {
+          const doc = checkRequest(src[id]);
+          if (!doc) throw new HttpError(400, 'Invalid request');
+          out[id] = typeof src[id].createdAt === 'number' ? { ...doc, createdAt: src[id].createdAt } : doc;
+        } else {
+          out[id] = checkDoc(col, id, src[id]);
+        }
+      } catch (e) {
+        if (e instanceof HttpError) throw new HttpError(400, `Backup entry ${col}/${id}: ${e.message}`);
+        throw e;
+      }
+    }
+    next[col] = out;
+  }
+  if (!Object.keys(next).length) throw new HttpError(400, 'This is not a Nook Curtains backup file');
+  const counts = {};
+  for (const [col, out] of Object.entries(next)) {
+    await mutate(col, (m) => {
+      for (const k of Object.keys(m)) delete m[k];
+      Object.assign(m, out);
+    });
+    counts[col] = Object.keys(out).length;
+  }
+  return json({ ok: true, restored: counts });
+}
+
 async function health(req, url) {
   const cfg = env();
   const out = {
@@ -144,6 +188,10 @@ async function handle(req, context) {
   if (parts[0] === 'export' && method === 'GET') {
     need(session, 'admin');
     return exportAll();
+  }
+  if (parts[0] === 'restore' && method === 'POST') {
+    need(session, 'admin');
+    return restore(req);
   }
 
   const rule = RULES[parts[0]];
