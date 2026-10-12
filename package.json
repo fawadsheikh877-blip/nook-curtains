@@ -1,0 +1,17 @@
+{
+  "name": "nook-curtains-desk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Nook Curtains customer request page and staff desk, hosted on Netlify",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev-server.mjs",
+    "test": "node scripts/api-test.mjs"
+  },
+  "dependencies": {
+    "@netlify/blobs": "latest"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

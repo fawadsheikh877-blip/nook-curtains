@@ -1,0 +1,969 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="description" content="Nook Curtains staff desk"><meta name="robots" content="noindex,nofollow"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Nook Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: master-detail staff desk. Job list on the left, the open job sheet on the right.
+   A pleated header band echoes curtain folds; the stage stepper mirrors Nook's own process
+   (appointment, free estimate, fabric and confirm, installation). */
+:root{
+  --bg:#EBEEEB; --surface:#F7F9F7; --raised:#FFFFFF; --ink:#18262A; --muted:#566669; --line:#D3D9D5;
+  --accent:#1B5B58; --accent-ink:#FFFFFF; --accent-soft:#DCEBE8; --danger:#A4382F; --ok:#2E7A3E;
+  --s-enquiry:#5F6F72; --s-measure:#A8680F; --s-quoted:#2B5FAE; --s-confirmed:#1B6F66;
+  --s-install:#7A4EA3; --s-done:#3A7D44; --s-lost:#A4382F;
+  --f-display:'Familjen Grotesk',system-ui,sans-serif;
+  --f-body:'Public Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1819; --surface:#162123; --raised:#1C2A2D; --ink:#E4ECEA; --muted:#93A5A6; --line:#2B3C3F;
+    --accent:#5FB8AF; --accent-ink:#0C1F1E; --accent-soft:#1F3A3A; --danger:#E27C72; --ok:#6CC17A;
+    --s-enquiry:#8FA0A3; --s-measure:#E0A04A; --s-quoted:#7FA8EA; --s-confirmed:#5FC2B3;
+    --s-install:#BC95E3; --s-done:#7FCB8B; --s-lost:#E27C72;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1819; --surface:#162123; --raised:#1C2A2D; --ink:#E4ECEA; --muted:#93A5A6; --line:#2B3C3F;
+  --accent:#5FB8AF; --accent-ink:#0C1F1E; --accent-soft:#1F3A3A; --danger:#E27C72; --ok:#6CC17A;
+  --s-enquiry:#8FA0A3; --s-measure:#E0A04A; --s-quoted:#7FA8EA; --s-confirmed:#5FC2B3;
+  --s-install:#BC95E3; --s-done:#7FCB8B; --s-lost:#E27C72;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1280px;margin:0 auto;padding-inline:16px}
+
+/* header */
+.top{background:repeating-linear-gradient(90deg,rgba(255,255,255,.08) 0 13px,rgba(0,0,0,.12) 13px 26px),var(--accent);color:var(--accent-ink);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.top .wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap;padding-block:10px}
+.brand{display:flex;flex-direction:column;line-height:1.1}
+.brand b{font-family:var(--f-display);font-size:20px;font-weight:700;letter-spacing:.01em}
+.brand small{font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.85}
+.tabs{display:flex;gap:4px;flex:1;min-width:0}
+.tabs button{background:transparent;border:0;border-radius:6px;padding:8px 12px;font-weight:600;color:inherit;opacity:.8}
+.tabs button[aria-selected="true"]{background:var(--accent-ink);color:var(--accent);opacity:1}
+.savestate{font-size:12px;opacity:.9;font-family:var(--f-mono)}
+
+main{padding-block:16px 28px}
+.banner{background:var(--accent-soft);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:12px}
+.banner.err{border-color:var(--danger);color:var(--danger)}
+
+/* split */
+.split{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+@media (min-width:900px){.split{grid-template-columns:minmax(300px,380px) minmax(0,1fr);align-items:start}}
+@media (max-width:899px){body.open-detail .list-pane{display:none}body:not(.open-detail) .detail-pane{display:none}}
+.list-pane{display:flex;flex-direction:column;gap:10px;min-width:0}
+.toolbar{display:flex;gap:8px}
+.toolbar input{flex:1;min-width:0}
+input,select,textarea{background:var(--raised);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%;min-width:0}
+textarea{resize:vertical}
+input:disabled,select:disabled,textarea:disabled{opacity:.6}
+.btn{background:var(--raised);border:1px solid var(--line);border-radius:6px;padding:8px 12px;font-weight:600;white-space:nowrap;width:auto}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.danger{color:var(--danger)}
+.btn.sm{padding:4px 8px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
+.chip{border:1px solid var(--line);background:var(--raised);border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;white-space:nowrap;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip .n{font-family:var(--f-mono);margin-left:4px;font-weight:400}
+.jobs{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.job{display:grid;gap:2px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.job[aria-current="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.job .r1{display:flex;justify-content:space-between;gap:8px}
+.job .nm{font-weight:600;overflow-wrap:anywhere}
+.job .meta{color:var(--muted);font-size:12px;overflow-wrap:anywhere}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.st{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--c)}
+.st i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.tag{font-size:10px;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--muted);margin-left:6px;font-weight:500}
+.empty{border:1px dashed var(--line);border-radius:8px;padding:20px;color:var(--muted);text-align:center}
+
+/* detail */
+.detail-pane{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:18px;min-width:0}
+.dhead{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.dhead .name{flex:1;min-width:180px;font-family:var(--f-display);font-size:24px;font-weight:600;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;padding:4px 0}
+.back{display:none}
+@media (max-width:899px){.back{display:inline-block}}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:6px}
+.step{background:transparent;border:0;border-top:4px solid var(--line);text-align:left;padding:6px 2px 0;font-size:12px;font-weight:600;color:var(--muted)}
+.step.past{border-top-color:var(--accent)}
+.step.now{border-top-color:var(--c);color:var(--c)}
+.lostbar{display:flex;gap:10px;align-items:center;color:var(--s-lost);font-weight:600}
+h3{font-family:var(--f-display);font-size:15px;font-weight:600;margin:0 0 8px;letter-spacing:.02em}
+.sec{display:flex;flex-direction:column}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.f{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted);min-width:0}
+.f>input,.f>select,.f>textarea{color:var(--ink);font-size:14px}
+.ints{display:flex;flex-wrap:wrap;gap:6px}
+.lines{display:flex;flex-direction:column;gap:8px}
+.line{display:grid;grid-template-columns:1.1fr 1.7fr 78px 78px 60px 130px 30px;gap:8px;align-items:end;background:var(--raised);border:1px solid var(--line);border-radius:8px;padding:10px}
+.line .amt{display:flex;flex-direction:column;align-items:flex-end;min-width:0}
+.line .basis{font-size:11px;color:var(--muted);font-family:var(--f-mono)}
+.line .amt b{font-family:var(--f-mono);font-weight:500}
+.line .x{background:transparent;border:0;color:var(--muted);font-size:20px;line-height:1;padding:4px}
+@media (max-width:760px){
+  .line{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .line .room,.line .prod{grid-column:1/-1}
+  .line .amt{grid-column:1/3;align-items:flex-start}
+  .line .x{grid-column:3;justify-self:end}
+}
+.totals{display:grid;grid-template-columns:1fr minmax(220px,300px);gap:16px}
+@media (max-width:700px){.totals{grid-template-columns:minmax(0,1fr)}}
+.sum{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-content:start}
+.sum .mono{text-align:right}
+.sum .grand{font-weight:600;font-size:16px;border-top:1px solid var(--line);padding-top:6px;margin-top:2px}
+.disc{display:flex;gap:6px;align-items:center}
+.disc input{width:100px;text-align:right}
+.quote{font-family:var(--f-mono);font-size:12px;min-height:150px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* appointments + prices */
+.days{display:flex;flex-direction:column;gap:16px;max-width:760px}
+.day h3{display:flex;justify-content:space-between}
+.appt{display:grid;grid-template-columns:70px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:6px}
+.appt .tm{font-family:var(--f-mono);font-weight:500}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:640px}
+th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:6px 8px;font-weight:600}
+td{padding:4px 6px;border-top:1px solid var(--line)}
+td input,td select{padding:6px 8px}
+td.num input{text-align:right;font-family:var(--f-mono)}
+#reqbox{background:var(--accent-soft);border:1px solid var(--accent);border-radius:8px;padding:10px 12px}
+#reqbox h3{margin:0}
+.req{display:grid;gap:8px;background:var(--raised);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-top:8px}
+.foot{color:var(--muted);font-size:12px;padding-block:16px;border-top:1px solid var(--line)}
+@media (prefers-reduced-motion:no-preference){.job,.chip,.btn{transition:border-color .15s,background .15s}}
+</style>
+</head><body>
+
+
+<header class="top"><div class="wrap">
+  <div class="brand"><b>Nook Curtains</b><small>Staff desk</small></div>
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button role="tab" data-act="tab" data-tab="jobs" aria-selected="true">Jobs</button>
+    <button role="tab" data-act="tab" data-tab="appts" aria-selected="false">Appointments</button>
+    <button role="tab" data-act="tab" data-tab="prices" aria-selected="false">Prices</button>
+  </nav>
+  <span class="savestate" id="savestate" role="status" aria-live="polite"></span>
+</div></header>
+
+<main class="wrap">
+  <div id="banner"></div>
+
+  <section id="view-jobs">
+    <div class="split">
+      <aside class="list-pane">
+        <div class="toolbar">
+          <input id="search" type="search" placeholder="Search name, phone, area" aria-label="Search jobs">
+          <button class="btn primary" data-act="new-job" id="newjob">New enquiry</button>
+        </div>
+        <div class="row"><button class="btn sm" data-act="toggle-import" id="importbtn">Paste a customer request</button></div>
+        <div class="banner" id="importpanel" hidden>
+          <label class="f" for="importtext">Paste the message the customer sent from the estimate form</label>
+          <textarea id="importtext" rows="7" placeholder="Name: ...&#10;Phone: ...&#10;Area: ...&#10;Needs: Curtains, Blinds"></textarea>
+          <div class="row" style="margin-top:8px"><button class="btn primary sm" data-act="do-import">Create job</button><button class="btn sm" data-act="toggle-import">Cancel</button></div>
+          <div class="f" id="importmsg" role="status" style="margin-top:6px"></div>
+        </div>
+        <div id="reqbox" hidden></div>
+        <div class="chips" id="chips" role="group" aria-label="Filter by stage"></div>
+        <ul class="jobs" id="joblist"></ul>
+      </aside>
+      <article class="detail-pane" id="detail" aria-live="polite"></article>
+    </div>
+  </section>
+
+  <section id="view-appts" hidden></section>
+  <section id="view-prices" hidden></section>
+</main>
+
+<footer class="wrap foot">
+  Nook Curtains · No 5, Al Faraj Building, Amman Street, Al Qusais Industrial Area 4, Dubai · <span class="mono">0509186005</span> · <span class="mono">info@nookcurtains.com</span>
+</footer>
+
+<script>
+/* Staff desk runtime for Netlify.
+   The desk was written against a small database interface. This file provides that interface on top of
+   this site's own /api, adds the sign-in screen, and keeps the desk in sync by checking for changes. */
+(function () {
+  'use strict';
+  var POLL_MS = 20000;            // how often an open desk checks for changes made by others
+  var COLS = ['jobs', 'prices', 'requests', 'settings'];
+
+  var role = null, inflight = 0, wv = 0, etag = null, timer = null, polling = false, started = false, okOnce = false;
+  var listeners = { jobs: [], prices: [], requests: [], settings: [] };
+  var last = {};
+  var readyResolve;
+  var ready = new Promise(function (r) { readyResolve = r; });
+
+  function api(method, path, body, headers) {
+    var h = { 'Accept': 'application/json' };
+    if (method !== 'GET') h['Content-Type'] = 'application/json';
+    Object.keys(headers || {}).forEach(function (k) { h[k] = headers[k]; });
+    return fetch('/api' + path, {
+      method: method, credentials: 'same-origin', headers: h,
+      body: body === undefined ? undefined : JSON.stringify(body)
+    });
+  }
+  function rid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); }
+
+  /* ---------- sign in ---------- */
+  function overlay(html) {
+    var old = document.getElementById('nook-login');
+    if (old) old.remove();
+    var d = document.createElement('div');
+    d.id = 'nook-login';
+    d.setAttribute('role', 'dialog');
+    d.setAttribute('aria-modal', 'true');
+    d.style.cssText = 'position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px';
+    d.innerHTML = '<div style="background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:24px;width:min(380px,100%);display:flex;flex-direction:column;gap:14px">' + html + '</div>';
+    document.body.appendChild(d);
+    return d;
+  }
+  function showFatal(message) {
+    var d = overlay('<h3 style="margin:0;font-family:var(--f-display);font-size:20px">Nook Curtains staff desk</h3><p style="margin:0">' + message + '</p>');
+    return d;
+  }
+  function loginFlow(message, reloadAfter) {
+    return new Promise(function (resolve) {
+      var d = overlay(
+        '<h3 style="margin:0;font-family:var(--f-display);font-size:20px">Nook Curtains staff desk</h3>' +
+        '<form id="nook-login-form" style="display:flex;flex-direction:column;gap:12px">' +
+        '<label class="f" for="nook-pw">Password<input id="nook-pw" type="password" autocomplete="current-password" required></label>' +
+        '<button class="btn primary" type="submit" id="nook-login-btn">Sign in</button>' +
+        '<div id="nook-login-msg" role="alert" style="color:var(--danger);min-height:1.3em;font-size:13px">' + (message || '') + '</div>' +
+        '</form>');
+      var form = d.querySelector('form'), pw = d.querySelector('#nook-pw'), msg = d.querySelector('#nook-login-msg'), btn = d.querySelector('#nook-login-btn');
+      pw.focus();
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        btn.disabled = true; msg.textContent = '';
+        api('POST', '/login', { password: pw.value }).then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (j) {
+            if (r.ok) { role = j.role; d.remove(); if (reloadAfter) location.reload(); else resolve(); return; }
+            msg.textContent = r.status === 429 ? (j.error || 'Too many tries. Wait and try again.') :
+              r.status === 503 ? 'The site is not set up yet. Add the password settings in Netlify.' : 'Wrong password.';
+            btn.disabled = false; pw.select();
+          });
+        }).catch(function () { msg.textContent = 'Could not reach the server. Check your connection.'; btn.disabled = false; });
+      });
+    });
+  }
+  function sessionLost() {
+    if (document.getElementById('nook-login')) return;
+    loginFlow('Your session ended. Sign in again to keep working.', true);
+  }
+
+  /* ---------- the database interface the desk uses ---------- */
+  function colSnap(map) {
+    var docs = Object.keys(map).map(function (k) {
+      return { id: k, exists: true, data: function () { return map[k]; } };
+    });
+    return { docs: docs, size: docs.length };
+  }
+  function docSnap(id, v) {
+    return v === undefined ? { id: id, exists: false, data: function () { return undefined; } }
+                           : { id: id, exists: true, data: function () { return v; } };
+  }
+  function write(method, path, body) {
+    inflight++; wv++;
+    return api(method, path, body).then(function (r) {
+      if (r.status === 401) { sessionLost(); throw { code: 'unauthorized' }; }
+      if (!r.ok) throw { code: r.status === 403 ? 'forbidden' : 'invalid_argument' };
+    }).finally(function () { inflight--; wv++; etag = null; schedule(1500); });
+  }
+  function docRef(col, id) {
+    return {
+      id: id,
+      set: function (data) { return write('PUT', '/' + col + '/' + encodeURIComponent(id), data); },
+      delete: function () { return write('DELETE', '/' + col + '/' + encodeURIComponent(id)); },
+      onSnapshot: function (next, err) { return subscribe(col, function (map) { next(docSnap(id, map[id])); }, err); }
+    };
+  }
+  var db = {
+    collection: function (name) {
+      return {
+        doc: function (id) { return docRef(name, id || rid()); },
+        onSnapshot: function (next, err) { return subscribe(name, function (map) { next(colSnap(map)); }, err); }
+      };
+    },
+    doc: function (path) { var a = path.split('/'); return docRef(a[0], a[1]); }
+  };
+
+  function subscribe(col, cb, err) {
+    var l = { cb: cb, err: err, json: null };
+    listeners[col].push(l);
+    if (last[col]) deliver(col, l);
+    if (!started) { started = true; poll(); }
+    return function () { listeners[col] = listeners[col].filter(function (x) { return x !== l; }); };
+  }
+  function deliver(col, l) {
+    var json = JSON.stringify(last[col]);
+    if (l.json === json) return;
+    l.json = json;
+    l.cb(last[col]);
+  }
+  function fail() {
+    COLS.forEach(function (c) { listeners[c].forEach(function (l) { if (l.err) l.err({ code: 'unavailable' }); }); });
+  }
+  function schedule(ms) {
+    clearTimeout(timer);
+    if (!started) return;
+    timer = setTimeout(poll, document.hidden ? Math.max(ms, 60000) : ms);
+  }
+  async function poll() {
+    if (polling) return;
+    polling = true;
+    var delay = POLL_MS;
+    try {
+      var v = wv;
+      var r = await api('GET', '/all', undefined, etag ? { 'If-None-Match': etag } : {});
+      if (r.status === 401) { sessionLost(); return; }
+      if (r.status !== 304) {
+        if (!r.ok) throw new Error('http ' + r.status);
+        var j = await r.json();
+        // If something was saved while this request was in flight, the reading may be out of date: discard it.
+        if (wv !== v || inflight > 0) { delay = 800; }
+        else {
+          etag = r.headers.get('ETag');
+          COLS.forEach(function (c) {
+            last[c] = j[c] || {};
+            listeners[c].slice().forEach(function (l) { deliver(c, l); });
+          });
+        }
+      }
+      okOnce = true;
+    } catch (e) {
+      if (!okOnce) fail();
+    } finally {
+      polling = false;
+      schedule(delay);
+    }
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && started) { clearTimeout(timer); poll(); }
+  });
+
+  /* ---------- who is using the desk, and saving files ---------- */
+  var user = {
+    isOwner: function () { return Promise.resolve(role === 'admin'); },
+    canEdit: function () { return Promise.resolve(role === 'admin'); },
+    can: function () { return Promise.resolve(true); },
+    id: function () { return Promise.resolve(role); },
+    me: function () { return Promise.resolve({ id: role, name: '', isOwner: role === 'admin', canEdit: role === 'admin' }); }
+  };
+  var TYPES = { html: 'text/html;charset=utf-8', csv: 'text/csv;charset=utf-8', json: 'application/json', txt: 'text/plain;charset=utf-8' };
+  var downloads = {
+    save: function (req) {
+      return new Promise(function (resolve, reject) {
+        try {
+          var ext = (req.filename.split('.').pop() || '').toLowerCase();
+          var blob = req.data instanceof Blob ? req.data : new Blob([req.data], { type: TYPES[ext] || 'application/octet-stream' });
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = req.filename;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+          resolve({ status: 'saved' });
+        } catch (e) { reject({ code: 'unavailable' }); }
+      });
+    }
+  };
+
+  window.claude = {
+    use: function (name) {
+      return ready.then(function () {
+        return name === 'db' ? db : name === 'user' ? user : name === 'downloads' ? downloads : null;
+      });
+    }
+  };
+
+  /* ---------- header buttons: sign out, backup ---------- */
+  function headerButton(label, onClick) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    b.style.cssText = 'background:transparent;border:1px solid currentColor;color:inherit;border-radius:6px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer';
+    b.addEventListener('click', onClick);
+    return b;
+  }
+  function backup(btn) {
+    btn.disabled = true;
+    fetch('/api/export', { credentials: 'same-origin' }).then(function (r) {
+      if (!r.ok) throw new Error('export failed');
+      return r.blob();
+    }).then(function (blob) {
+      return downloads.save({ filename: 'nook-backup-' + new Date().toISOString().slice(0, 10) + '.json', data: blob });
+    }).catch(function () { alert('The backup could not be downloaded.'); }).finally(function () { btn.disabled = false; });
+  }
+  ready.then(function () {
+    var bar = document.querySelector('.top .wrap');
+    if (!bar) return;
+    if (role === 'admin') {
+      var bk = headerButton('Download backup', function () { backup(bk); });
+      bar.appendChild(bk);
+    }
+    bar.appendChild(headerButton('Sign out', function () {
+      api('POST', '/logout', {}).finally(function () { location.reload(); });
+    }));
+  });
+
+  /* ---------- start ---------- */
+  api('GET', '/session').then(function (r) {
+    if (r.ok) return r.json().then(function (j) { role = j.role; readyResolve(); });
+    if (r.status === 503) { showFatal('This site is not set up yet. In Netlify, add the STAFF_PASSWORD, ADMIN_PASSWORD and AUTH_SECRET settings, then deploy again.'); return; }
+    return loginFlow().then(readyResolve);
+  }).catch(function () {
+    showFatal('Could not reach the server. Check your connection and reload the page.');
+  });
+})();
+
+</script>
+<script>
+(function(){
+'use strict';
+
+var STAGES=[
+  {id:'enquiry',label:'Enquiry'},
+  {id:'measure',label:'Measure booked'},
+  {id:'quoted',label:'Quoted'},
+  {id:'confirmed',label:'Fabric confirmed'},
+  {id:'install',label:'Installation'},
+  {id:'done',label:'Done'},
+  {id:'lost',label:'Lost'}
+];
+var STAGE=Object.fromEntries(STAGES.map(function(s){return [s.id,s]}));
+var FLOW=STAGES.slice(0,6);
+var SOURCES=['Phone call','WhatsApp','Email','Website form','Walk-in','Referral'];
+var INTERESTS=['Curtains','Blinds','Roman blinds','Roller blinds','Carpets','Office carpet tiles','Wallpaper','Vinyl flooring','Furniture'];
+var UNITS={m:'per m of width',sqm:'per m²',pc:'per piece'};
+var UNIT_SHORT={m:'m',sqm:'m²',pc:'pc'};
+var VAT=0.05;
+var BIZ={phone:'0509186005',email:'info@nookcurtains.com'};
+
+var db=null, dl=null, jobs=new Map(), prices=new Map(), requests=new Map(), settings={trn:'',terms:''};
+var sel=null, tab='jobs', q='', filter='open';
+var RO=false, canPrice=true, localMode=false, loaded={jobs:false,prices:false}, dbError='';
+var saving=new Map(), renderedJson='';
+
+function $(s,r){return (r||document).querySelector(s)}
+function $$(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function num(v){var n=parseFloat(v);return isFinite(n)?n:0}
+function r2(n){return Math.round(n*100)/100}
+function aed(n){return 'AED '+r2(n).toLocaleString('en-AE',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function uid(){return Math.random().toString(36).slice(2,10)}
+function dis(){return RO?' disabled':''}
+
+/* ---------- pricing ---------- */
+function lineBasis(l,p){
+  var w=num(l.w),h=num(l.h),qty=num(l.qty)||1;
+  if(!p)return {text:'',amount:0};
+  if(p.unit==='m'){var m=w/100;return {text:m?m.toFixed(2)+' m × '+qty:'',amount:p.rate*m*qty}}
+  if(p.unit==='sqm'){
+    var raw=(w*h)/10000,min=num(p.min),a=Math.max(raw,min);
+    var t=raw?(a.toFixed(2)+' m²'+(a>raw?' (min)':'')+' × '+qty):'';
+    return {text:t,amount:p.rate*(raw?a:0)*qty};
+  }
+  return {text:qty+' pc',amount:p.rate*qty};
+}
+function lineAmount(l){var p=prices.get(l.priceId);return r2(lineBasis(l,p).amount)}
+function totals(j){
+  var sub=r2((j.lines||[]).reduce(function(s,l){return s+lineAmount(l)},0));
+  var disc=Math.min(num(j.discount),sub);
+  var net=r2(sub-disc),vat=r2(net*VAT);
+  return {sub:sub,disc:disc,net:net,vat:vat,total:r2(net+vat)};
+}
+function quoteText(j){
+  var t=totals(j),L=[];
+  L.push('Nook Curtains quotation'+(j.name?' for '+j.name:''));
+  L.push('');
+  (j.lines||[]).forEach(function(l,i){
+    var p=prices.get(l.priceId); if(!p)return;
+    var size=(p.unit!=='pc'&&num(l.w))?' '+num(l.w)+' × '+(num(l.h)||'-')+' cm':'';
+    var qty=(num(l.qty)||1)>1?' ×'+num(l.qty):'';
+    L.push((i+1)+'. '+(l.room||'Window')+' – '+p.name+size+qty+': '+aed(lineAmount(l)));
+  });
+  L.push('');
+  L.push('Subtotal: '+aed(t.sub));
+  if(t.disc)L.push('Discount: -'+aed(t.disc));
+  L.push('VAT 5%: '+aed(t.vat));
+  L.push('Total: '+aed(t.total));
+  L.push('');
+  L.push(BIZ.phone+' · '+BIZ.email);
+  return L.join('\n');
+}
+
+/* ---------- saving ---------- */
+function setSave(state){
+  var el=$('#savestate');
+  el.textContent={saving:'Saving…',saved:'All changes saved',error:'Not saved. Check connection',local:'Not kept: no shared storage',idle:''}[state]||'';
+}
+function plain(o){var c=Object.assign({},o);delete c.id;return JSON.parse(JSON.stringify(c))}
+function queueSave(col,id,delay){
+  var key=col+'/'+id,s=saving.get(key);
+  if(!s){s={inflight:false,dirty:false,timer:null};saving.set(key,s)}
+  s.dirty=true;clearTimeout(s.timer);
+  s.timer=setTimeout(function(){flush(col,id)},delay==null?500:delay);
+  setSave(db?'saving':'local');
+}
+function flush(col,id){
+  var key=col+'/'+id,s=saving.get(key);
+  if(!s||s.inflight||!s.dirty)return;
+  var obj=(col==='jobs'?jobs:prices).get(id);
+  if(!db||!obj){saving.delete(key);return}
+  s.inflight=true;s.dirty=false;
+  db.collection(col).doc(id).set(plain(obj)).then(function(){
+    s.inflight=false;
+    if(s.dirty)flush(col,id);
+    else{saving.delete(key);setSave(saving.size?'saving':'saved')}
+  },function(){
+    s.inflight=false;s.dirty=true;setSave('error');
+  });
+}
+function busy(col,id){var s=saving.get(col+'/'+id);return !!(s&&(s.dirty||s.inflight))}
+
+function applySnap(col,snap){
+  var map=col==='jobs'?jobs:col==='requests'?requests:prices,seen=new Set();
+  snap.docs.forEach(function(d){
+    seen.add(d.id);
+    if(busy(col,d.id))return;
+    /* snapshot data is read-only all the way down, so keep an editable deep copy */
+    map.set(d.id,Object.assign({id:d.id},JSON.parse(JSON.stringify(d.data()))));
+  });
+  Array.from(map.keys()).forEach(function(id){if(!seen.has(id)&&!busy(col,id))map.delete(id)});
+  loaded[col]=true;
+  renderAll(true);
+}
+
+/* ---------- render ---------- */
+function stageTag(id){var s=STAGE[id]||STAGE.enquiry;return '<span class="st" style="--c:var(--s-'+s.id+')"><i></i>'+esc(s.label)+'</span>'}
+function fmtDay(d){return d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}
+function fmtTime(d){return d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
+function pad(n){return (n<10?'0':'')+n}
+function ymd(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function parseAppt(s){return s?new Date(s):null}
+
+function renderBanner(){
+  var h='';
+  if(localMode)h+='<div class="banner">Shared storage is not available in this view, so nothing you enter here is kept. Open Nook Desk from its claude.ai link to work with the team’s data.</div>';
+  if(dbError)h+='<div class="banner err">Could not load shared data ('+esc(dbError)+'). Reload the page to try again.</div>';
+  if(RO)h+='<div class="banner">You can view jobs but not change them. Ask the owner for Contributor access.</div>';
+  $('#banner').innerHTML=h;
+  $('#newjob').disabled=RO;$('#importbtn').disabled=RO;
+}
+
+function visibleJobs(){
+  var all=Array.from(jobs.values()).sort(function(a,b){return (b.updatedAt||0)-(a.updatedAt||0)});
+  if(q){
+    var t=q.toLowerCase();
+    return all.filter(function(j){return [j.name,j.phone,j.area,j.email].join(' ').toLowerCase().indexOf(t)>-1});
+  }
+  if(filter==='open')return all.filter(function(j){return j.stage!=='done'&&j.stage!=='lost'});
+  return all.filter(function(j){return j.stage===filter});
+}
+function renderList(){
+  var counts={open:0};
+  jobs.forEach(function(j){counts[j.stage]=(counts[j.stage]||0)+1;if(j.stage!=='done'&&j.stage!=='lost')counts.open++});
+  var chips=[{id:'open',label:'Open'}].concat(STAGES);
+  $('#chips').innerHTML=chips.map(function(c){
+    return '<button class="chip" data-act="chip" data-v="'+c.id+'" aria-pressed="'+(filter===c.id&&!q)+'">'+esc(c.label)+'<span class="n">'+(counts[c.id]||0)+'</span></button>';
+  }).join('');
+  var list=visibleJobs(),ul=$('#joblist');
+  if(!loaded.jobs&&!localMode){ul.innerHTML='<li class="empty">Loading jobs…</li>';return}
+  if(!list.length){
+    ul.innerHTML='<li class="empty">'+(jobs.size?'No jobs match this view.':'No jobs yet. Add the first enquiry with New enquiry.')+'</li>';return;
+  }
+  ul.innerHTML=list.map(function(j){
+    var t=totals(j),a=parseAppt(j.apptAt);
+    var meta=[j.area,(j.interest||[]).slice(0,2).join(', ')].filter(Boolean).join(' · ');
+    return '<li><button class="job" data-act="open" data-id="'+esc(j.id)+'" aria-current="'+(sel===j.id)+'">'+
+      '<span class="r1"><span class="nm">'+esc(j.name||'Unnamed enquiry')+(j.example?'<span class="tag">Example</span>':'')+'</span>'+stageTag(j.stage)+'</span>'+
+      '<span class="meta">'+esc(meta||j.phone||'No details yet')+'</span>'+
+      '<span class="r1 meta"><span>'+(a?esc(j.visit||'Visit')+' '+esc(fmtDay(a))+' '+esc(fmtTime(a)):'No visit booked')+'</span><span class="mono">'+(t.sub?esc(aed(t.total)):'')+'</span></span>'+
+      '</button></li>';
+  }).join('');
+}
+
+function productOptions(selected){
+  var by={};
+  prices.forEach(function(p){(by[p.category||'Other']=by[p.category||'Other']||[]).push(p)});
+  var h='<option value="">Choose item…</option>';
+  if(selected&&!prices.has(selected))h+='<option value="'+esc(selected)+'" selected>(removed item)</option>';
+  Object.keys(by).sort().forEach(function(c){
+    h+='<optgroup label="'+esc(c)+'">'+by[c].sort(function(a,b){return String(a.name).localeCompare(b.name)}).map(function(p){
+      return '<option value="'+esc(p.id)+'"'+(p.id===selected?' selected':'')+'>'+esc(p.name)+' · '+esc(num(p.rate))+'/'+UNIT_SHORT[p.unit||'pc']+'</option>';
+    }).join('')+'</optgroup>';
+  });
+  return h;
+}
+function lineHTML(l){
+  var p=prices.get(l.priceId),b=lineBasis(l,p);
+  return '<div class="line" data-line="'+esc(l.id)+'">'+
+    '<label class="f room">Room or window<input data-lf="room" value="'+esc(l.room)+'" placeholder="Living room"'+dis()+'></label>'+
+    '<label class="f prod">Item<select data-lf="priceId"'+dis()+'>'+productOptions(l.priceId)+'</select></label>'+
+    '<label class="f">Width cm<input data-lf="w" inputmode="decimal" value="'+esc(l.w||'')+'"'+dis()+'></label>'+
+    '<label class="f">Drop cm<input data-lf="h" inputmode="decimal" value="'+esc(l.h||'')+'"'+dis()+'></label>'+
+    '<label class="f">Qty<input data-lf="qty" inputmode="decimal" value="'+esc(l.qty||1)+'"'+dis()+'></label>'+
+    '<div class="amt"><span class="basis" data-basis>'+esc(b.text)+'</span><b data-amt>'+esc(aed(lineAmount(l)))+'</b></div>'+
+    '<button class="x" data-act="rm-line" aria-label="Remove this line"'+dis()+'>×</button>'+
+    '</div>';
+}
+function detailHTML(j){
+  var idx=FLOW.findIndex(function(s){return s.id===j.stage});
+  var lost=j.stage==='lost';
+  var steps=FLOW.map(function(s,i){
+    var cls='step'+(i<idx?' past':'')+(i===idx?' now':'');
+    return '<button class="'+cls+'" style="--c:var(--s-'+s.id+')" data-act="stage" data-stage="'+s.id+'" aria-pressed="'+(i===idx)+'"'+dis()+'>'+esc(s.label)+'</button>';
+  }).join('');
+  var ints=INTERESTS.map(function(n){
+    var on=(j.interest||[]).indexOf(n)>-1;
+    return '<button class="chip" data-act="int" data-v="'+esc(n)+'" aria-pressed="'+on+'"'+dis()+'>'+esc(n)+'</button>';
+  }).join('');
+  var t=totals(j);
+  return '<div class="dhead">'+
+      '<button class="btn back" data-act="back">← Jobs</button>'+
+      '<input class="name" data-f="name" value="'+esc(j.name)+'" placeholder="Customer name" aria-label="Customer name"'+dis()+'>'+
+      (j.example?'<span class="tag">Example</span>':'')+
+      '<button class="btn sm danger" data-act="del-job"'+dis()+'>Delete job</button>'+
+    '</div>'+
+    (lost?'<div class="lostbar">This job is marked lost. <button class="btn sm" data-act="stage" data-stage="enquiry"'+dis()+'>Reopen</button></div>':
+      '<div><div class="steps" role="group" aria-label="Job stage">'+steps+'</div>'+
+      '<div class="row" style="margin-top:8px"><button class="btn sm" data-act="stage" data-stage="lost"'+dis()+'>Mark as lost</button></div></div>')+
+    '<div class="sec"><h3>Customer</h3><div class="grid">'+
+      '<label class="f">Phone<input data-f="phone" inputmode="tel" value="'+esc(j.phone)+'" placeholder="05x xxx xxxx"'+dis()+'></label>'+
+      '<label class="f">Email<input data-f="email" type="email" value="'+esc(j.email)+'"'+dis()+'></label>'+
+      '<label class="f">Area or address<input data-f="area" value="'+esc(j.area)+'" placeholder="Al Qusais, villa 12"'+dis()+'></label>'+
+      '<label class="f">How they reached us<select data-f="source"'+dis()+'>'+SOURCES.map(function(s){return '<option'+(s===j.source?' selected':'')+'>'+esc(s)+'</option>'}).join('')+'</select></label>'+
+    '</div><div class="ints" style="margin-top:10px">'+ints+'</div></div>'+
+    '<div class="sec"><h3>Visit</h3><div class="grid">'+
+      '<label class="f">Type<select data-f="visit"'+dis()+'>'+['Measurement','Installation','Showroom visit'].map(function(s){return '<option'+(s===j.visit?' selected':'')+'>'+s+'</option>'}).join('')+'</select></label>'+
+      '<label class="f">Date and time<input type="datetime-local" data-f="apptAt" value="'+esc(j.apptAt||'')+'"'+dis()+'></label>'+
+    '</div><label class="f" style="margin-top:10px">Notes<textarea data-f="notes" rows="3" placeholder="Access, parking, fabric preferences, budget"'+dis()+'>'+esc(j.notes)+'</textarea></label></div>'+
+    '<div class="sec"><h3>Windows and items</h3>'+
+      '<div class="lines" id="lines">'+((j.lines||[]).map(lineHTML).join('')||'<div class="empty">No windows yet. Add each window or item measured on site.</div>')+'</div>'+
+      '<div class="row" style="margin-top:8px"><button class="btn" data-act="add-line"'+dis()+'>Add window or item</button>'+
+      (prices.size?'':'<span class="f">Add items in Prices first.</span>')+'</div></div>'+
+    '<div class="totals">'+
+      '<div class="sec"><h3>Quote text</h3><textarea class="quote" id="quoteText" readonly aria-label="Quote text to send"></textarea>'+
+      '<div class="row" style="margin-top:8px"><button class="btn primary" data-act="copy" id="copybtn">Copy quote</button></div></div>'+
+      '<div class="sec"><h3>Totals</h3><div class="sum">'+
+        '<span>Subtotal</span><span class="mono" data-t="sub">'+esc(aed(t.sub))+'</span>'+
+        '<span>Discount</span><span class="disc"><input class="mono" data-f="discount" inputmode="decimal" value="'+esc(j.discount||'')+'" placeholder="0" aria-label="Discount in AED"'+dis()+'></span>'+
+        '<span></span><span style="text-align:right"><button class="btn sm" data-act="disc100"'+dis()+'>Apply AED 100 offer</button></span>'+
+        '<span>VAT 5%</span><span class="mono" data-t="vat">'+esc(aed(t.vat))+'</span>'+
+        '<span class="grand">Total</span><span class="mono grand" data-t="total">'+esc(aed(t.total))+'</span>'+
+      '</div></div>'+
+    '</div>'+invoiceHTML(j);
+}
+
+/* ---------- invoice ---------- */
+function invoiceReady(j){return j.stage==='confirmed'||j.stage==='install'||j.stage==='done'}
+function suggestInvNo(j){var d=new Date();return 'NC-'+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'-'+String(j.id).replace(/[^a-z0-9]/gi,'').slice(-4).toUpperCase()}
+function dueOf(j){return Math.max(0,r2(totals(j).total-num(j.deposit)))}
+function invoiceName(j){return 'Invoice-'+String(j.invoiceNo||'draft').replace(/[^A-Za-z0-9_-]/g,'')+'.html'}
+function longDate(s){var d=new Date((s||ymd(new Date()))+'T12:00');return isNaN(d.getTime())?String(s||''):d.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}
+function invoiceHTML(j){
+  if(!invoiceReady(j))return '<div class="f">The invoice section appears once the job reaches Fabric confirmed.</div>';
+  var has=totals(j).sub>0;
+  return '<div class="sec"><h3>Invoice</h3><div class="grid">'+
+    '<label class="f">Invoice number<input data-f="invoiceNo" value="'+esc(j.invoiceNo||suggestInvNo(j))+'"'+dis()+'></label>'+
+    '<label class="f">Invoice date<input type="date" data-f="invoiceDate" value="'+esc(j.invoiceDate||ymd(new Date()))+'"'+dis()+'></label>'+
+    '<label class="f">Deposit received (AED)<input data-f="deposit" inputmode="decimal" value="'+esc(j.deposit||'')+'" placeholder="0"'+dis()+'></label>'+
+    '<div class="f">Balance due<b class="mono" data-t="due" style="color:var(--ink);font-size:16px">'+esc(aed(dueOf(j)))+'</b></div>'+
+    '</div><div class="row" style="margin-top:10px"><button class="btn primary" data-act="invoice"'+(has?'':' disabled')+'>Download invoice</button>'+
+    '<span class="f" id="invmsg" role="status">'+(has?'Saves a file. Open it, then press Print or choose Save as PDF.':'Add at least one priced window or item first.')+'</span></div></div>';
+}
+function invoiceFile(j){
+  var t=totals(j),dep=num(j.deposit),due=dueOf(j),n=0,tax=!!settings.trn;
+  var rows=(j.lines||[]).map(function(l){
+    var p=prices.get(l.priceId);if(!p)return '';
+    n++;
+    var size=(p.unit!=='pc'&&num(l.w))?num(l.w)+' × '+(num(l.h)||'-')+' cm':'';
+    return '<tr><td>'+n+'</td><td>'+esc(l.room||'Window')+'</td><td>'+esc(p.name)+(size?'<br><span class="s">'+esc(size)+'</span>':'')+'</td><td class="r">'+esc(num(l.qty)||1)+'</td><td class="r">'+esc(aed(lineAmount(l)))+'</td></tr>';
+  }).join('');
+  var tr=function(a,b,cls){return '<tr'+(cls?' class="'+cls+'"':'')+'><td>'+a+'</td><td class="r">'+b+'</td></tr>'};
+  var css='@page{size:A4;margin:14mm}*{box-sizing:border-box}body{margin:0;background:#fff;color:#18262A;font:14px/1.45 system-ui,-apple-system,"Segoe UI",Arial,sans-serif}'+
+    '.bar{padding:10px 16px;background:#1B5B58;display:flex;gap:12px;align-items:center;flex-wrap:wrap;color:#fff}.bar button{font:inherit;font-weight:600;padding:8px 16px;border:0;border-radius:6px;background:#fff;color:#1B5B58;cursor:pointer}'+
+    'main{max-width:800px;margin:0 auto;padding:24px 16px}header{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;border-bottom:3px solid #1B5B58;padding-bottom:14px}'+
+    'h1{margin:0;font-size:26px;color:#1B5B58}h2{margin:0;font-size:22px;letter-spacing:.06em;text-transform:uppercase}.m{color:#566669;font-size:13px}.two{margin:18px 0}'+
+    'table{width:100%;border-collapse:collapse}th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#566669;border-bottom:1px solid #18262A;padding:6px 8px}td{padding:8px;border-bottom:1px solid #D3D9D5;vertical-align:top}'+
+    '.r{text-align:right;font-variant-numeric:tabular-nums}th.r{text-align:right}.s{color:#566669;font-size:12px}.tot{margin:14px 0 0 auto;width:min(340px,100%)}.tot td{border:0;padding:4px 8px}.tot .b td{font-weight:700;border-top:1px solid #18262A}'+
+    '.foot{margin-top:28px;color:#566669;font-size:13px}@media print{.bar{display:none}main{padding:0}}';
+  var contact=[j.phone,j.email,j.area].filter(Boolean).map(esc).join('<br>');
+  return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc((tax?'Tax invoice ':'Invoice ')+(j.invoiceNo||''))+'</title><style>'+css+'</style></head><body>'+
+    '<div class="bar"><button onclick="window.print()">Print invoice</button><span>In the print window, choose Save as PDF to keep a copy.</span></div><main>'+
+    '<header><div><h1>Nook Curtains</h1><div class="m">No 5, Al Faraj Building, Amman Street, Al Qusais Industrial Area 4, Dubai, UAE<br>0509186005 · info@nookcurtains.com'+(tax?'<br>TRN '+esc(settings.trn):'')+'</div></div>'+
+    '<div style="text-align:right"><h2>'+(tax?'Tax invoice':'Invoice')+'</h2><div class="m">No. '+esc(j.invoiceNo||'')+'<br>'+esc(longDate(j.invoiceDate))+'</div></div></header>'+
+    '<div class="two"><div class="s">BILL TO</div><b>'+esc(j.name||'Customer')+'</b><div class="m">'+contact+'</div></div>'+
+    '<table><thead><tr><th>#</th><th>Room</th><th>Item</th><th class="r">Qty</th><th class="r">Amount</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<table class="tot"><tbody>'+tr('Subtotal',esc(aed(t.sub)))+(t.disc?tr('Discount','-'+esc(aed(t.disc))):'')+tr('VAT 5%',esc(aed(t.vat)))+tr('Total',esc(aed(t.total)),'b')+(dep?tr('Deposit received','-'+esc(aed(dep)))+tr('Balance due',esc(aed(due)),'b'):'')+'</tbody></table>'+
+    '<div class="foot">'+(settings.terms?esc(settings.terms)+'<br>':'')+'Thank you for choosing Nook Curtains.</div></main></body></html>';
+}
+function settingsHTML(){
+  var ro=(!canPrice||RO)?' disabled':'';
+  return '<div class="sec" style="margin-top:20px;max-width:760px"><h3>Invoice details</h3><div class="grid">'+
+    '<label class="f">Tax registration number (TRN)<input data-sf="trn" value="'+esc(settings.trn)+'" placeholder="Shown on invoices when filled in"'+ro+'></label>'+
+    '<label class="f">Payment terms line<input data-sf="terms" value="'+esc(settings.terms)+'" placeholder="Balance due on installation"'+ro+'></label>'+
+    '</div><p class="f" style="margin:6px 0 0">With a TRN the document is titled Tax invoice. Without one it is titled Invoice.</p></div>';
+}
+function saveSetting(k,v){
+  settings[k]=String(v).trim();
+  if(!db)return;
+  setSave('saving');
+  db.doc('settings/invoice').set({trn:settings.trn||'',terms:settings.terms||''}).then(function(){setSave(saving.size?'saving':'saved')},function(){setSave('error')});
+}
+
+function renderDetail(){
+  var el=$('#detail'),j=sel&&jobs.get(sel);
+  if(!j){
+    renderedJson='';
+    el.innerHTML='<div class="empty">'+(jobs.size?'Pick a job from the list to see its measurements and quote.':'Nothing open. Add an enquiry to start a job sheet.')+'</div>';
+    document.body.classList.remove('open-detail');
+    return;
+  }
+  el.innerHTML=detailHTML(j);
+  renderedJson=JSON.stringify(j);
+  document.body.classList.add('open-detail');
+  refreshCalc(j);
+}
+function refreshCalc(j){
+  var t=totals(j);
+  var set=function(k,v){var e=$('[data-t="'+k+'"]');if(e)e.textContent=aed(v)};
+  set('sub',t.sub);set('vat',t.vat);set('total',t.total);set('due',dueOf(j));
+  $$('#lines .line').forEach(function(row){
+    var l=(j.lines||[]).find(function(x){return x.id===row.dataset.line});if(!l)return;
+    var p=prices.get(l.priceId),b=lineBasis(l,p);
+    $('[data-basis]',row).textContent=b.text;
+    $('[data-amt]',row).textContent=aed(lineAmount(l));
+  });
+  var qt=$('#quoteText');if(qt)qt.value=quoteText(j);
+}
+
+function renderAppts(){
+  var el=$('#view-appts');
+  var now=new Date(),today=ymd(now);
+  var withAppt=Array.from(jobs.values()).filter(function(j){return j.apptAt&&j.stage!=='lost'&&j.stage!=='done'}).sort(function(a,b){return a.apptAt<b.apptAt?-1:1});
+  var upcoming=withAppt.filter(function(j){return j.apptAt.slice(0,10)>=today});
+  var late=withAppt.filter(function(j){return j.apptAt.slice(0,10)<today&&(j.stage==='measure'||j.stage==='install')});
+  function item(j){
+    var a=parseAppt(j.apptAt);
+    return '<button class="appt" data-act="open" data-id="'+esc(j.id)+'"><span class="tm">'+esc(fmtTime(a))+'</span>'+
+      '<span><b>'+esc(j.name||'Unnamed enquiry')+'</b><br><span class="f">'+esc([j.visit,j.area].filter(Boolean).join(' · '))+'</span></span>'+stageTag(j.stage)+'</button>';
+  }
+  var h='<div class="days">';
+  if(late.length)h+='<div class="day"><h3 style="color:var(--danger)">Past visits still open</h3>'+late.map(item).join('')+'</div>';
+  var groups={};upcoming.forEach(function(j){(groups[j.apptAt.slice(0,10)]=groups[j.apptAt.slice(0,10)]||[]).push(j)});
+  var tomorrow=new Date(now.getTime()+864e5),tom=ymd(tomorrow);
+  Object.keys(groups).sort().forEach(function(k){
+    var d=new Date(k+'T00:00'),label=k===today?'Today':k===tom?'Tomorrow':fmtDay(d);
+    h+='<div class="day"><h3><span>'+esc(label)+'</span><span class="mono f">'+groups[k].length+' visit'+(groups[k].length>1?'s':'')+'</span></h3>'+groups[k].map(item).join('')+'</div>';
+  });
+  if(!late.length&&!upcoming.length)h+='<div class="empty">No visits booked. Set a date and time on a job to see it here.</div>';
+  el.innerHTML=h+'</div>';
+}
+
+function renderPrices(){
+  var el=$('#view-prices');
+  var list=Array.from(prices.values()).sort(function(a,b){return (String(a.category).localeCompare(b.category))||String(a.name).localeCompare(b.name)});
+  var ro=(!canPrice||RO)?' disabled':'';
+  var rows=list.map(function(p){
+    return '<tr data-id="'+esc(p.id)+'">'+
+      '<td><input data-pf="name" value="'+esc(p.name)+'" aria-label="Item name"'+ro+'>'+(p.example?'<span class="tag">Example</span>':'')+'</td>'+
+      '<td><select data-pf="category" aria-label="Category"'+ro+'>'+INTERESTS.map(function(c){return '<option'+(c===p.category?' selected':'')+'>'+esc(c)+'</option>'}).join('')+'</select></td>'+
+      '<td><select data-pf="unit" aria-label="Priced by"'+ro+'>'+Object.keys(UNITS).map(function(u){return '<option value="'+u+'"'+(u===p.unit?' selected':'')+'>'+esc(UNITS[u])+'</option>'}).join('')+'</select></td>'+
+      '<td class="num"><input data-pf="rate" inputmode="decimal" value="'+esc(p.rate)+'" aria-label="Rate in AED"'+ro+'></td>'+
+      '<td class="num"><input data-pf="min" inputmode="decimal" value="'+esc(p.unit==='sqm'?(p.min||''):'')+'" placeholder="–" aria-label="Minimum billed area in square metres"'+(p.unit==='sqm'?ro:' disabled')+'></td>'+
+      '<td>'+((!canPrice||RO)?'':'<button class="btn sm danger" data-act="rm-price">Remove</button>')+'</td></tr>';
+  }).join('');
+  el.innerHTML='<div class="banner">Rates are in AED before 5% VAT. Rows tagged Example are placeholders until you change them.'+((!canPrice&&!localMode)?' Only editors can change prices.':'')+'</div>'+
+    '<div class="row" style="margin-bottom:10px"><button class="btn primary" data-act="add-price"'+((!canPrice||RO)?' disabled':'')+'>Add item</button></div>'+
+    '<div class="scroll"><table><thead><tr><th>Item</th><th>Category</th><th>Priced</th><th>Rate (AED)</th><th>Min m²</th><th></th></tr></thead><tbody>'+
+    (rows||'<tr><td colspan="6"><div class="empty">No items yet. Add curtains, blinds, carpets and the rest with their rates.</div></td></tr>')+'</tbody></table></div>'+settingsHTML();
+}
+
+function reqVisit(r){return [r.date?longDate(r.date):'',r.slot].filter(Boolean).join(', ')}
+function renderReqs(){
+  var box=$('#reqbox');if(!box)return;
+  var list=Array.from(requests.values()).sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0)});
+  if(!list.length){box.hidden=true;box.innerHTML='';return}
+  box.hidden=false;
+  box.innerHTML='<h3>New customer requests <span class="mono">'+list.length+'</span></h3>'+list.map(function(r){
+    var sub=[(r.needs||[]).join(', '),r.area,reqVisit(r)?'Prefers '+reqVisit(r):''].filter(Boolean).join(' · ');
+    return '<div class="req"><div><b>'+esc(r.name||'No name')+'</b> <span class="mono">'+esc(r.phone||'')+'</span><div class="f">'+esc(sub)+'</div></div>'+
+      '<div class="row"><button class="btn primary sm" data-act="req-create" data-id="'+esc(r.id)+'"'+dis()+'>Create job</button><button class="btn sm" data-act="req-dismiss" data-id="'+esc(r.id)+'"'+dis()+'>Dismiss</button></div></div>';
+  }).join('');
+}
+function renderAll(fromSnap){
+  renderBanner();
+  renderList();
+  renderReqs();
+  var active=document.activeElement;
+  var inDetail=active&&$('#detail').contains(active)&&/INPUT|TEXTAREA|SELECT/.test(active.tagName);
+  var j=sel&&jobs.get(sel);
+  if(sel&&!j){sel=null;renderDetail()}
+  else if(!fromSnap){renderDetail()}
+  else if(j&&!inDetail&&JSON.stringify(j)!==renderedJson){renderDetail()}
+  else if(j&&inDetail){refreshCalc(j)}
+  if(!j&&!sel&&!renderedJson&&$('#detail').children.length===0)renderDetail();
+  if(tab==='appts')renderAppts();
+  if(tab==='prices'){var pa=document.activeElement;if(!(pa&&$('#view-prices').contains(pa)&&/INPUT|SELECT/.test(pa.tagName)))renderPrices()}
+}
+
+/* ---------- actions ---------- */
+function touch(j){j.updatedAt=Date.now();queueSave('jobs',j.id)}
+function newJob(){
+  var id=db?db.collection('jobs').doc().id:uid();
+  var j={id:id,name:'',phone:'',email:'',area:'',source:'Phone call',stage:'enquiry',interest:[],visit:'Measurement',apptAt:'',notes:'',lines:[],discount:0,createdAt:Date.now(),updatedAt:Date.now()};
+  jobs.set(id,j);sel=id;queueSave('jobs',id,0);
+  filter='open';q='';$('#search').value='';
+  renderAll();
+  var n=$('.name');if(n)n.focus();
+}
+function parseRequest(text){
+  var get=function(label){var m=text.match(new RegExp('^\\s*'+label+'\\s*:\\s*(.+)$','im'));return m?m[1].trim():''};
+  var needs=get('Needs').split(',').map(function(s){return s.trim()}).filter(function(s){return INTERESTS.indexOf(s)>-1});
+  return {name:get('Name'),phone:get('Phone'),area:get('Area'),prop:get('Property'),needs:needs,windows:get('Windows'),visit:get('Preferred visit'),notes:get('Notes')};
+}
+function createJobFrom(r){
+  var id=db?db.collection('jobs').doc().id:uid();
+  var notes=[];
+  if(r.visit)notes.push('Customer prefers: '+r.visit);
+  if(r.prop)notes.push('Property: '+r.prop);
+  if(r.windows)notes.push('Windows: about '+r.windows);
+  if(r.notes)notes.push(r.notes);
+  var j={id:id,name:r.name,phone:r.phone,email:'',area:r.area,source:'Website form',stage:'enquiry',interest:r.needs,visit:'Measurement',apptAt:'',notes:notes.join('\n'),lines:[],discount:0,createdAt:Date.now(),updatedAt:Date.now()};
+  jobs.set(id,j);sel=id;queueSave('jobs',id,0);filter='open';q='';$('#search').value='';
+  return id;
+}
+function importJob(text){var r=parseRequest(text);if(!r.name&&!r.phone)return false;createJobFrom(r);return true}
+function setTab(t){
+  tab=t;
+  $$('.tabs button').forEach(function(b){b.setAttribute('aria-selected',String(b.dataset.tab===t))});
+  $('#view-jobs').hidden=t!=='jobs';$('#view-appts').hidden=t!=='appts';$('#view-prices').hidden=t!=='prices';
+  if(t==='appts')renderAppts();
+  if(t==='prices')renderPrices();
+}
+function addPrice(){
+  var id=db?db.collection('prices').doc().id:uid();
+  prices.set(id,{id:id,name:'New item',category:'Curtains',unit:'m',rate:0,min:0});
+  queueSave('prices',id,0);renderPrices();
+}
+
+document.addEventListener('click',function(e){
+  var b=e.target.closest('[data-act]');if(!b||b.disabled)return;
+  var act=b.dataset.act,j=sel&&jobs.get(sel);
+  switch(act){
+    case 'tab':setTab(b.dataset.tab);break;
+    case 'new-job':newJob();break;
+    case 'chip':filter=b.dataset.v;q='';$('#search').value='';renderList();break;
+    case 'open':sel=b.dataset.id;setTab('jobs');renderList();renderDetail();window.scrollTo(0,0);break;
+    case 'back':sel=null;document.body.classList.remove('open-detail');renderList();break;
+    case 'stage':if(j){j.stage=b.dataset.stage;touch(j);renderList();renderDetail()}break;
+    case 'int':if(j){var a=j.interest||(j.interest=[]),i=a.indexOf(b.dataset.v);if(i>-1)a.splice(i,1);else a.push(b.dataset.v);b.setAttribute('aria-pressed',String(i===-1));touch(j);renderList()}break;
+    case 'add-line':if(j){(j.lines=j.lines||[]).push({id:uid(),room:'',priceId:'',w:0,h:0,qty:1});touch(j);renderDetail();var rs=$$('#lines .line');var last=rs[rs.length-1];if(last)$('input',last).focus()}break;
+    case 'rm-line':if(j){var id=b.closest('.line').dataset.line;j.lines=j.lines.filter(function(l){return l.id!==id});touch(j);renderList();renderDetail()}break;
+    case 'disc100':if(j){j.discount=100;touch(j);var di=$('[data-f="discount"]');if(di)di.value='100';refreshCalc(j);renderList()}break;
+    case 'copy':if(j){var t=quoteText(j);var done=function(m){b.textContent=m;setTimeout(function(){b.textContent='Copy quote'},1800)};
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){done('Copied')},function(){var ta=$('#quoteText');ta.select();done('Select and copy')})}
+      else{var ta=$('#quoteText');ta.select();done('Select and copy')}}break;
+    case 'del-job':
+      if(!b.dataset.armed){b.dataset.armed='1';b.textContent='Click again to delete';setTimeout(function(){b.dataset.armed='';b.textContent='Delete job'},4000)}
+      else if(j){var id2=j.id;jobs.delete(id2);saving.delete('jobs/'+id2);sel=null;if(db)db.collection('jobs').doc(id2).delete().catch(function(){setSave('error')});renderAll()}
+      break;
+    case 'invoice':if(j){
+      var ni=$('[data-f="invoiceNo"]'),nd=$('[data-f="invoiceDate"]');
+      j.invoiceNo=((ni&&ni.value)||j.invoiceNo||suggestInvNo(j)).trim();
+      j.invoiceDate=(nd&&nd.value)||j.invoiceDate||ymd(new Date());
+      touch(j);renderedJson=JSON.stringify(j);
+      var say=function(m){var e=$('#invmsg');if(e)e.textContent=m};
+      if(!dl){say('Saving files is not available in this view.');break}
+      say('Confirm the save in the box that appears.');
+      dl.save({filename:invoiceName(j),data:invoiceFile(j)}).then(function(){say('Saved. Open the file, then press Print or choose Save as PDF.')},function(err){say(err&&err.code==='declined'?'Save cancelled.':'Could not save the file. Try again.')});
+    }break;
+    case 'req-create':var rq=requests.get(b.dataset.id);if(rq){
+      createJobFrom({name:rq.name,phone:rq.phone,area:rq.area,prop:rq.prop,needs:(rq.needs||[]).filter(function(n){return INTERESTS.indexOf(n)>-1}),windows:rq.windows,visit:reqVisit(rq),notes:rq.notes});
+      requests.delete(rq.id);if(db)db.collection('requests').doc(rq.id).delete().catch(function(){setSave('error')});
+      setTab('jobs');renderAll();
+    }break;
+    case 'req-dismiss':requests.delete(b.dataset.id);if(db)db.collection('requests').doc(b.dataset.id).delete().catch(function(){setSave('error')});renderReqs();break;
+    case 'toggle-import':var ip=$('#importpanel');ip.hidden=!ip.hidden;$('#importmsg').textContent='';if(!ip.hidden)$('#importtext').focus();break;
+    case 'do-import':
+      if(importJob($('#importtext').value)){$('#importtext').value='';$('#importpanel').hidden=true;setTab('jobs');renderAll()}
+      else{$('#importmsg').textContent='No name or phone found. Paste the whole message, including the Name: and Phone: lines.'}
+      break;
+    case 'add-price':addPrice();break;
+    case 'rm-price':var tr=b.closest('tr'),pid=tr.dataset.id;prices.delete(pid);saving.delete('prices/'+pid);if(db)db.collection('prices').doc(pid).delete().catch(function(){setSave('error')});renderPrices();if(j)refreshCalc(j);break;
+  }
+});
+
+document.addEventListener('input',function(e){
+  var t=e.target;
+  if(t.id==='search'){q=t.value.trim();renderList();return}
+  var j=sel&&jobs.get(sel);if(!j||!$('#detail').contains(t))return;
+  if(t.dataset.f){
+    var f=t.dataset.f;
+    j[f]=(f==='discount'||f==='deposit')?num(t.value):t.value;
+    touch(j);
+    if(f==='discount')refreshCalc(j);
+    if(f==='name'||f==='phone'||f==='area'||f==='apptAt'||f==='visit')renderList();
+    if(f==='name'||f==='discount'||f==='deposit')refreshCalc(j);
+    renderedJson=JSON.stringify(j);
+  }else if(t.dataset.lf){
+    var row=t.closest('.line'),l=j.lines.find(function(x){return x.id===row.dataset.line});if(!l)return;
+    var k=t.dataset.lf;
+    l[k]=(k==='w'||k==='h'||k==='qty')?num(t.value):t.value;
+    touch(j);refreshCalc(j);renderList();
+    renderedJson=JSON.stringify(j);
+  }
+});
+document.addEventListener('change',function(e){
+  var t=e.target;
+  if(t.dataset.sf){saveSetting(t.dataset.sf,t.value);return}
+  if(!t.dataset.pf)return;
+  var id=t.closest('tr').dataset.id,p=prices.get(id);if(!p)return;
+  var k=t.dataset.pf;
+  p[k]=(k==='rate'||k==='min')?num(t.value):t.value;
+  p.example=false;
+  queueSave('prices',id,0);
+  renderPrices();
+  var j=sel&&jobs.get(sel);if(j)refreshCalc(j);
+  renderList();
+});
+
+/* ---------- boot ---------- */
+setSave('idle');
+renderAll();
+(async function(){
+  var c=window.claude;
+  if(!c||!c.use){localMode=true;loaded.jobs=loaded.prices=true;renderAll();setSave('local');return}
+  var d=null,u=null;
+  try{d=await c.use('db');u=await c.use('user')}catch(_){}
+  try{dl=await c.use('downloads')}catch(_){}
+  if(!d){localMode=true;loaded.jobs=loaded.prices=true;renderAll();setSave('local');return}
+  db=d;
+  if(u){
+    try{canPrice=await u.canEdit();var w=await u.can('data.write');RO=(w===false)}catch(_){}
+  }else{canPrice=false}
+  renderAll();
+  var onErr=function(e){dbError=(e&&e.code)||'unavailable';renderBanner()};
+  db.collection('jobs').onSnapshot(function(s){applySnap('jobs',s)},onErr);
+  db.collection('prices').onSnapshot(function(s){applySnap('prices',s)},onErr);
+  db.collection('requests').onSnapshot(function(s){applySnap('requests',s)},onErr);
+  db.doc('settings/invoice').onSnapshot(function(s){
+    if(s.exists){var v=s.data()||{};settings={trn:String(v.trn||''),terms:String(v.terms||'')}}
+    if(tab==='prices'){var a=document.activeElement;if(!(a&&$('#view-prices').contains(a)))renderPrices()}
+  },onErr);
+})();
+})();
+</script>
+
+</body></html>
